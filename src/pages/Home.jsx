@@ -9,7 +9,7 @@ const Home = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [records, setRecords] = useState([]);
 
-  // URL real de tu SheetDB conectada a Google Sheets
+  // URL de tu API de SheetDB vinculada a Google Sheets
   const SHEETDB_URL = "https://sheetdb.io/api/v1/syqttrsthga83";
 
   const [manualData, setManualData] = useState({ lote: '', marca: '', calibre: '', destino: '', codigo: '' });
@@ -120,9 +120,9 @@ const Home = () => {
       toast({ title: "📊 Análisis completo", description: "Métricas calculadas por la IA." });
     } catch (err) {
       toast({ title: "❌ Error", description: err.message });
-    } window.finally(() => {
+    } finally {
       setIsAnalyzing(false);
-    });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -140,7 +140,7 @@ const Home = () => {
     };
 
     try {
-      // Guardar el bloque de datos en la hoja compartida
+      // Guardar el bloque de datos directamente en tu Google Sheets a través de SheetDB
       const response = await fetch(SHEETDB_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,7 +152,7 @@ const Home = () => {
         setManualData({ lote: '', marca: '', calibre: '', destino: '', codigo: '' });
         setAiData(null);
         setCurrentBase64Image('');
-        fetchGlobalRecords(); // Refrescar la tabla al instante
+        fetchGlobalRecords(); // Refrescar la tabla al instante con datos reales de la nube
       } else {
         throw new Error("No se pudo conectar con la nube.");
       }
@@ -164,7 +164,7 @@ const Home = () => {
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-12 page-enter">
       {/* Selector API */}
       <div className="bg-card text-card-foreground p-4 rounded-xl border shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="text-xs">
@@ -227,7 +227,7 @@ const Home = () => {
             </div>
 
             <button type="submit" disabled={!aiData || isSaving} className="w-full bg-foreground text-background font-bold py-3 rounded-xl text-xs uppercase tracking-wider shadow-md">
-              {isSaving ? "💾 Sincronizando Nube..." : "Guardar Registro en Equipo"}
+              {isSaving ? "💾 Sincronizando Nube..." : "Guardar Registro Completo"}
             </button>
           </form>
         </div>
