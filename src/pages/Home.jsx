@@ -9,16 +9,14 @@ const Home = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [records, setRecords] = useState([]);
 
-  // URL de tu API de SheetDB vinculada a Google Sheets
+  // Tu API real vinculada a tu Google Sheets "CONTROL LA"
   const SHEETDB_URL = "https://sheetdb.io/api/v1/syqttrsthga83";
 
   const [manualData, setManualData] = useState({ lote: '', marca: '', calibre: '', destino: '', codigo: '' });
   const [aiData, setAiData] = useState(null);
 
-  // Cargar el historial unificado desde Google Sheets al entrar a la web
   useEffect(() => {
     fetchGlobalRecords();
-    // Auto-recargar cada 30 segundos de fondo para sincronizar lo que suben otros usuarios
     const interval = setInterval(fetchGlobalRecords, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -28,7 +26,6 @@ const Home = () => {
       const response = await fetch(SHEETDB_URL);
       if (response.ok) {
         const data = await response.json();
-        // Invertimos el array para que los registros más recientes salgan arriba
         setRecords(data.reverse());
       }
     } catch (error) {
@@ -140,7 +137,6 @@ const Home = () => {
     };
 
     try {
-      // Guardar el bloque de datos directamente en tu Google Sheets a través de SheetDB
       const response = await fetch(SHEETDB_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,7 +148,7 @@ const Home = () => {
         setManualData({ lote: '', marca: '', calibre: '', destino: '', codigo: '' });
         setAiData(null);
         setCurrentBase64Image('');
-        fetchGlobalRecords(); // Refrescar la tabla al instante con datos reales de la nube
+        fetchGlobalRecords(); 
       } else {
         throw new Error("No se pudo conectar con la nube.");
       }
@@ -164,8 +160,7 @@ const Home = () => {
   };
 
   return (
-    <div className="space-y-6 pb-12 page-enter">
-      {/* Selector API */}
+    <div className="space-y-6 pb-12">
       <div className="bg-card text-card-foreground p-4 rounded-xl border shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="text-xs">
           <span className="font-bold block text-primary">⚙️ Sistema Cloud Colectivo Conectado</span>
@@ -181,7 +176,6 @@ const Home = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Formulario */}
         <div className="lg:col-span-1 bg-card p-4 sm:p-6 rounded-2xl border shadow-sm space-y-4">
           <h2 className="text-lg font-bold tracking-tight">Nueva Inspección</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -232,7 +226,6 @@ const Home = () => {
           </form>
         </div>
 
-        {/* Panel Historial Sincronizado */}
         <div className="lg:col-span-2 bg-card p-4 sm:p-6 rounded-2xl border shadow-sm space-y-4 overflow-hidden">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-bold tracking-tight">Historial Compartido ({records.length})</h2>
