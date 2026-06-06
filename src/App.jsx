@@ -76,7 +76,8 @@ function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
-        <Router>
+        {/* Agregamos el basename para que funcione correctamente en carpetas de GitHub Pages */}
+        <Router basename="/LA/">
           <ScrollToTop />
           <AuthenticatedApp />
         </Router>
