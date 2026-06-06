@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
+import * as XLSX from 'xlsx'; // Importamos la librería para generar el archivo Excel
 
 const Home = () => {
   const { toast } = useToast();
@@ -9,7 +10,7 @@ const Home = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [records, setRecords] = useState([]);
 
-  // Tu API real vinculada a tu Google Sheets "CONTROL LA"
+  // Tu API vinculada a SheetDB
   const SHEETDB_URL = "https://sheetdb.io/api/v1/syqttrsthga83";
 
   const [manualData, setManualData] = useState({ lote: '', marca: '', calibre: '', destino: '', codigo: '' });
@@ -17,8 +18,6 @@ const Home = () => {
 
   useEffect(() => {
     fetchGlobalRecords();
-    const interval = setInterval(fetchGlobalRecords, 30000);
-    return () => clearInterval(interval);
   }, []);
 
   const fetchGlobalRecords = async () => {
@@ -31,6 +30,50 @@ const Home = () => {
     } catch (error) {
       console.error("Error al conectar con la base de datos cloud:", error);
     }
+  };
+
+  // NUEVA FUNCIÓN: Genera y descarga el archivo Excel localmente
+  const downloadExcel = () => {
+    if (records.length === 0) {
+      toast({ title: "⚠️ Tabla vacía", description: "No hay registros en el historial para exportar." });
+      return;
+    }
+
+    // Estructuramos y limpiamos los encabezados de las columnas para el Excel de salida
+    const datosFormateados = records.map(rec => ({
+      'Lote': rec.lote,
+      'Marca': rec.marca,
+      'Calibre': rec.calibre,
+      'Destino': rec.destino,
+      'Código de Muestra': rec.codigo,
+      'Frutas Visibles': rec.frutas_visibles,
+      'Fruta Limpia (%)': rec.fruta_limpia_pct ? `${rec.fruta_limpia_pct}%` : '',
+      'Manchas (%)': rec.manchas_pct ? `${rec.manchas_pct}%` : '',
+      'Cicatrices (%)': rec.cicatrices_pct ? `${rec.cicatrices_pct}%` : '',
+      'Oleocelosis (%)': rec.oleocelosis_pct ? `${rec.oleocelosis_pct}%` : '',
+      'Daño Mecánico (%)': rec.dano_mecanico_pct ? `${rec.dano_mecanico_pct}%` : '',
+      'Amarillo (%)': rec.amarillo_pct ? `${rec.amarillo_pct}%` : '',
+      'Verde Claro (%)': rec.verde_claro_pct ? `${rec.verde_claro_pct}%` : '',
+      'Verde Oscuro (%)': rec.verde_oscuro_pct ? `${rec.verde_oscuro_pct}%` : '',
+      'Uniformidad de Color': rec.uniformidad_color,
+      'Puntaje': rec.puntaje,
+      'Clasificación': rec.clasificacion,
+      'Tamaño': rec.tamano,
+      'Fecha de Inspección': rec.fecha
+    }));
+
+    // Crear el libro de Excel interno
+    const worksheet = XLSX.utils.json_to_sheet(datosFormateados);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Reporte Calidad");
+
+    // Obtener la fecha actual para nombrar el archivo automáticamente
+    const fechaArchivo = new Date().toISOString().slice(0,10);
+    
+    // Ejecuta la descarga en el navegador del usuario
+    XLSX.writeFile(workbook, `Reporte_Calidad_LA_${fechaArchivo}.xlsx`);
+    
+    toast({ title: "📊 Exportación Exitosa", description: "El archivo Excel se ha descargado en tu dispositivo." });
   };
 
   const handleInputChange = (e) => {
@@ -144,16 +187,16 @@ const Home = () => {
       });
 
       if (response.ok) {
-        toast({ title: "💾 Guardado Global", description: "Sincronizado con Google Sheets para todo el equipo." });
+        toast({ title: "💾 Guardado", description: "Registro añadido exitosamente." });
         setManualData({ lote: '', marca: '', calibre: '', destino: '', codigo: '' });
         setAiData(null);
         setCurrentBase64Image('');
         fetchGlobalRecords(); 
       } else {
-        throw new Error("No se pudo conectar con la nube.");
+        throw new Error("Error en el servidor de almacenamiento.");
       }
     } catch (error) {
-      toast({ title: "⚠️ Error de red", description: error.message });
+      toast({ title: "⚠️ Error", description: error.message });
     } finally {
       setIsSaving(false);
     }
@@ -227,9 +270,20 @@ const Home = () => {
         </div>
 
         <div className="lg:col-span-2 bg-card p-4 sm:p-6 rounded-2xl border shadow-sm space-y-4 overflow-hidden">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-bold tracking-tight">Historial Compartido ({records.length})</h2>
-            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">🟢 GOOGLE SHEETS LIVE</span>
+          {/* Cabecera del Historial con el nuevo Botón de Exportar */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight">Historial Compartido ({records.length})</h2>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">🟢 SISTEMA ACTIVO</span>
+            </div>
+            
+            {/* BOTÓN VERDE DE EXPORTACIÓN DIRECTA */}
+            <button 
+              onClick={downloadExcel}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl uppercase tracking-wide shadow-md transition-colors"
+            >
+              📥 Exportar a Excel
+            </button>
           </div>
           
           <div className="overflow-x-auto border rounded-xl bg-background">
