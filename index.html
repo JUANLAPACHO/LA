@@ -13,9 +13,14 @@
 
     <div class="max-w-7xl mx-auto">
         <header class="mb-6 border-b border-slate-200 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
-                <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Control de Calidad con IA</h1>
-                <p class="text-xs sm:text-sm text-slate-500">Módulo conectado directamente a Google Sheets y OpenAI</p>
+            <div class="flex items-center gap-4">
+                <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-100 flex items-center justify-center">
+                    <img src="./IMG/logo-lapacho-amarillo.png" alt="Logo Lapacho Amarillo" class="h-12 w-auto object-contain sm:h-16">
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Control de Calidad con IA</h1>
+                    <p class="text-xs sm:text-sm text-slate-500">Módulo conectado directamente a Google Sheets y OpenAI</p>
+                </div>
             </div>
         </header>
 
@@ -64,10 +69,11 @@
 
                     <div class="border-2 border-dashed border-slate-300 rounded-2xl p-4 bg-slate-50 text-center relative hover:bg-slate-100 transition">
                         <label for="photoInput" class="cursor-pointer block space-y-2">
-                            <div class="text-2xl">📸</div>
-                            <div class="text-xs font-bold text-blue-600 uppercase">Capturar Muestra de Fruta</div>
+                            <div class="text-3xl">📸</div>
+                            <div class="text-xs font-bold text-blue-600 uppercase tracking-wide">Abrir Cámara y Tomar Foto</div>
+                            <p class="text-[10px] text-slate-400">Se activará la cámara del dispositivo para capturar el lote</p>
                         </label>
-                        <input type="file" id="photoInput" accept="image/*" class="hidden"/>
+                        <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden"/>
                         
                         <div id="previewContainer" class="mt-3 hidden border-t border-slate-200 pt-3 space-y-2">
                             <img id="imagePreview" src="" alt="Vista previa" class="w-full h-40 object-cover rounded-xl border border-slate-200 shadow-inner">
@@ -140,7 +146,6 @@
     </div>
 
     <script>
-        // Pega aquí la URL web de tu Google Apps Script obtenida en el Paso 1
         const GOOGLE_SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAuBWwfv-ILHBH0CuWXO9uoZpcio56-cjfWi7_CqkUJesxKHJwAz0N1A5zPNVkTv9C/exec";
 
         const qcForm = document.getElementById('qcForm');
@@ -173,7 +178,6 @@
             apiKeyInput.value = localStorage.getItem('openai_apikey');
         }
 
-        // Carga los registros directo desde el archivo de Google Sheets
         async function fetchRecordsFromSheets() {
             if(!GOOGLE_SHEETS_SCRIPT_URL || GOOGLE_SHEETS_SCRIPT_URL.includes("TU_URL")) return;
             try {
@@ -183,7 +187,7 @@
                 });
                 const res = await response.json();
                 if (res.status === "success") {
-                    records = res.data.reverse(); // Mostrar los últimos primero
+                    records = res.data.reverse();
                     renderData();
                     syncStatus.innerText = "✅ Conectado a Sheets";
                 }
@@ -206,163 +210,4 @@
                     canvas.width = MAX_WIDTH;
                     canvas.height = img.height * scaleSize;
                     const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    
-                    currentBase64Image = canvas.toDataURL('image/jpeg', 0.75);
-                    imagePreview.src = currentBase64Image;
-                    previewContainer.classList.remove('hidden');
-                    iaResultsPanel.classList.add('hidden'); 
-                    lastIaAnalysis = null;
-                    submitBtn.disabled = true;
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
-
-        analyzeIaBtn.addEventListener('click', async () => {
-            const apiKey = apiKeyInput.value.trim();
-            if(!apiKey) { alert("🔑 Introduce tu API Key de OpenAI para usar la visión artificial."); return; }
-            localStorage.setItem('openai_apikey', apiKey);
-
-            analyzeIaBtn.disabled = true;
-            analyzeIaBtn.innerText = "🧠 Escaneando muestra...";
-
-            const base64Pure = currentBase64Image.split(',')[1];
-
-            try {
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({
-                        model: "gpt-4o",
-                        response_format: { type: "json_object" }, 
-                        messages: [
-                            {
-                                role: "user",
-                                content: [
-                                    {
-                                        type: "text",
-                                        text: "Analiza la muestra de fruta de esta imagen para control de calidad. Responde estrictamente con un JSON plano con las siguientes llaves (todos los porcentajes deben ser enteros del 0 al 100):\n{\n \"frutas_visibles\": (conteo de frutas),\n \"fruta_limpia\": (%),\n \"manchas\": (%),\n \"cicatrices\": (%),\n \"oleocelosis\": (%),\n \"dano_mecanico\": (%),\n \"amarillo\": (%),\n \"verde_claro\": (%),\n \"verde_oscuro\": (%),\n \"uniformidad_color\": (texto, ej: 'buena', 'variable', 'pobre'),\n \"puntaje\": (número 1 al 10),\n \"clasificacion\": (texto, ej: 'primera', 'segunda', 'descarte'),\n \"tamano\": (texto, ej: 'grande', 'mediano', 'pequeño')\n}\nNota: La suma de amarillo + verde_claro + verde_oscuro debe dar exactamente 100."
-                                    },
-                                    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Pure}` } }
-                                ]
-                            }
-                        ],
-                        max_tokens: 500
-                    })
-                });
-
-                const data = await response.json();
-                if(data.error) throw new Error(data.error.message);
-
-                const iaJson = JSON.parse(data.choices[0].message.content);
-                lastIaAnalysis = iaJson;
-
-                iaVisibles.innerText = `${iaJson.frutas_visibles} uds`;
-                iaLimpia.innerText = `${iaJson.fruta_limpia}%`;
-                iaManchas.innerText = `${iaJson.manchas}%`;
-                iaCicatrices.innerText = `${iaJson.cicatrices}%`;
-                iaOleocelosis.innerText = `${iaJson.oleocelosis}%`;
-                iaDano.innerText = `${iaJson.dano_mecanico || 0}%`;
-                iaPuntaje.innerText = `${iaJson.puntaje}/10`;
-                iaClasif.innerText = String(iaJson.clasificacion).toUpperCase();
-                iaTamano.innerText = iaJson.tamano;
-
-                iaResultsPanel.classList.remove('hidden');
-                submitBtn.disabled = false;
-
-            } catch (err) {
-                alert("❌ Error: " + err.message);
-            } finally {
-                analyzeIaBtn.disabled = false;
-                analyzeIaBtn.innerText = "🧠 Analizar Calidad con IA";
-            }
-        });
-
-        function renderData() {
-            tableBodyDesktop.innerHTML = '';
-            if (records.length === 0) { noDataMessage.classList.remove('hidden'); return; }
-            noDataMessage.classList.add('hidden');
-
-            records.forEach(rec => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 transition-colors";
-                tr.innerHTML = `
-                    <td class="p-2 font-mono text-blue-600">${rec.lote || ''}</td>
-                    <td class="p-2 font-bold">${rec.marca || ''}</td>
-                    <td class="p-2">${rec.calibre || ''}</td>
-                    <td class="p-2">${rec.destino || ''}</td>
-                    <td class="p-2 font-mono">${rec.codigo || ''}</td>
-                    <td class="p-2 text-center font-bold">${rec.frutas_visibles || 0}</td>
-                    <td class="p-2 text-center bg-green-50 text-green-700 font-bold">${rec.fruta_limpia || 0}%</td>
-                    <td class="p-2 text-center text-amber-700">${rec.manchas || 0}%</td>
-                    <td class="p-2 text-center text-orange-700">${rec.cicatrices || 0}%</td>
-                    <td class="p-2 text-center text-purple-700">${rec.oleocelosis || 0}%</td>
-                    <td class="p-2 text-center text-red-600">${rec.dano_mecanico || 0}%</td>
-                    <td class="p-2 text-center bg-yellow-50 text-yellow-600">${rec.amarillo || 0}%</td>
-                    <td class="p-2 text-center bg-lime-50 text-lime-600">${rec.verde_claro || 0}%</td>
-                    <td class="p-2 text-center bg-emerald-50 text-emerald-700">${rec.verde_oscuro || 0}%</td>
-                    <td class="p-2 italic text-slate-500">${rec.uniformidad_color || ''}</td>
-                    <td class="p-2 text-center font-black text-blue-600">${rec.puntaje || 0}</td>
-                    <td class="p-2 uppercase"><span class="px-1.5 py-0.5 border rounded bg-slate-50 text-[10px] font-bold">${rec.clasificacion || ''}</span></td>
-                    <td class="p-2 text-slate-500">${rec.tamano || ''}</td>
-                    <td class="p-2 text-slate-400 font-normal whitespace-nowrap">${rec.fecha || ''}</td>
-                `;
-                tableBodyDesktop.appendChild(tr);
-            });
-        }
-
-        qcForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if(!lastIaAnalysis) return;
-
-            submitBtn.disabled = true;
-            submitBtn.innerText = "🚀 Enviando a Google Sheets...";
-
-            const now = new Date();
-            const formattedDate = now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES', {hour: '2-digit', minute:'2-digit'});
-
-            const newRecord = {
-                action: "write",
-                fecha: formattedDate,
-                lote: document.getElementById('lote').value,
-                marca: document.getElementById('marca').value,
-                calibre: document.getElementById('calibre').value,
-                destino: document.getElementById('destino').value,
-                codigo: document.getElementById('codigo').value,
-                ...lastIaAnalysis
-            };
-
-            try {
-                // Guarda directamente en tu Google Sheets
-                await fetch(GOOGLE_SHEETS_SCRIPT_URL, {
-                    method: "POST",
-                    body: JSON.stringify(newRecord)
-                });
-
-                // Actualizar tabla visual al instante
-                records.unshift(newRecord);
-                renderData();
-
-                qcForm.reset();
-                currentBase64Image = "";
-                lastIaAnalysis = null;
-                previewContainer.classList.add('hidden');
-                iaResultsPanel.classList.add('hidden');
-                
-                // Recargar historial limpio
-                fetchRecordsFromSheets();
-            } catch (err) {
-                alert("❌ Error al guardar en Sheets. Revisa la configuración del Script.");
-            } finally {
-                submitBtn.disabled = true;
-                submitBtn.innerText = "Guardar Directo en Sheets";
-            }
-        });
-
-        // Al iniciar la web carga el historial real
-        fetchRecordsFromSheets();
-    </script>
-</body>
-</html>
+                    ctx
