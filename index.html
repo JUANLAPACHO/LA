@@ -205,14 +205,14 @@
                 const img = new Image();
                 img.onload = function() {
                     const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 600; 
+                    const MAX_WIDTH = 800; 
                     const scaleSize = MAX_WIDTH / img.width;
                     canvas.width = MAX_WIDTH;
                     canvas.height = img.height * scaleSize;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     
-                    currentBase64Image = canvas.toDataURL('image/jpeg', 0.75);
+                    currentBase64Image = canvas.toDataURL('image/jpeg', 0.80);
                     imagePreview.src = currentBase64Image;
                     previewContainer.classList.remove('hidden');
                     iaResultsPanel.classList.add('hidden'); 
@@ -247,14 +247,14 @@
                                 content: [
                                     {
                                         type: "text",
-                                        // NUEVA LÓGICA DE CÁLCULO INYECTADA EN EL PROMPT DE INSPECCIÓN
-                                        text: `Actúa como un Inspector de Control de Calidad Senior en empaque de limones frescos de exportación. Analiza minuciosamente la muestra de fruta de la imagen.\n\nREGLA MATEMÁTICA OBLIGATORIA PARA FRUTA LIMPIA:\n- "frutas_visibles": Cuenta el número TOTAL de frutas en la imagen.\n- "fruta_limpia": Calcula este porcentaje ESTRICTAMENTE como el número de frutas TOTALMENTE LIMPIAS (100% impecables, sin ninguna mancha, punto negro o herida) dividido por el número total de "frutas_visibles". Multiplica por 100.\n  *Ejemplo:* Si ves 5 frutas en total, y 1 de ellas tiene un grupo de puntos negros de alto contraste, esa fruta NO está limpia. Por ende, solo hay 4 frutas limpias de 5 totales, lo que da un 80% de fruta_limpia.\n\nDISTRIBUCIÓN DE DEFECTOS RESTANTES (Suma de fruta_limpia + manchas + cicatrices + oleocelosis + dano_mecanico debe dar 100%):\n- Distribuye el porcentaje restante entre los tipos de defectos observados en las frutas afectadas.\n- Si hay manchas oscuras de alto contraste (puntos negros concentrados, trips virulentos o melanosis fuerte), el porcentaje de "manchas" debe reflejar el peso visual del problema.\n\nCRITERIOS DE CLASIFICACIÓN COMERCIAL:\n- PRIMERA: fruta_limpia >= 90% (Frutas perfectas en su inmensa mayoría) y CERO defectos de alto contraste.\n- SEGUNDA: fruta_limpia entre 70% y 89%, con defectos cosméticos leves tolerables en el resto.\n- DESCARTE: fruta_limpia < 70% O si cualquier fruta presenta agrupaciones de puntos negros/marrones con FUERTE CONTRASTE visual (daños mayores). Si una sola fruta está severamente dañada con contraste fuerte, el lote completo se penaliza bajando el puntaje a un rango de 1 a 5 y clasificándolo como DESCARTE.\n\nDevuelve obligatoriamente un objeto JSON plano con esta estructura exacta:\n{\n  \"frutas_visibles\": (número),\n  \"fruta_limpia\": (%),\n  \"manchas\": (%),\n  \"cicatrices\": (%),\n  \"oleocelosis\": (%),\n  \"dano_mecanico\": (%),\n  \"amarillo\": (%),\n  \"verde_claro\": (%),\n  \"verde_oscuro\": (%),\n  \"uniformidad_color\": (\"buena\" o \"variable\" o \"pobre\"),\n  \"puntaje\": (número del 1 al 10),\n  \"clasificacion\": (\"PRIMERA\" o \"SEGUNDA\" o \"DESCARTE\"),\n  \"tamano\": (\"grande\" o \"mediano\" o \"pequeño\")\n}`
+                                        // PROMPT OPTIMIZADO PARA EVITAR ERRORES DE SINTAXIS Y NORMALIZAR SOMBRAS
+                                        text: `Actúa como un Inspector de Control de Calidad Senior en empaque de limones frescos de exportación. Analiza minuciosamente la muestra de fruta de la imagen.\n\nDebes retornar obligatoriamente un formato json válido.\n\nREGLA MATEMÁTICA PARA FRUTA LIMPIA:\n- "frutas_visibles": Cuenta de forma consistente el número total de frutas individuales visibles.\n- "fruta_limpia": Calcula el porcentaje como el número de frutas completamente limpias (sin heridas severas ni manchas negras de alto contraste) dividido el total de frutas_visibles. Multiplica por 100.\n  *Nota:* Ignora sombras suaves de empaque o variaciones leves de luz natural entre las frutas para evitar falsos positivos de defectos.\n\nDISTRIBUCIÓN DE DEFECTOS (Suma de fruta_limpia + manchas + cicatrices + oleocelosis + dano_mecanico debe dar 100%):\n- Distribuye el porcentaje restante entre los tipos de defectos reales observados en la corteza.\n\nCRITERIOS DE CLASIFICACIÓN:\n- PRIMERA: fruta_limpia >= 90%.\n- SEGUNDA: fruta_limpia entre 70% y 89%.\n- DESCARTE: fruta_limpia < 70% o daños severos de pudrición.\n\nDevuelve exactamente esta estructura json:\n{\n  \"frutas_visibles\": 0,\n  \"fruta_limpia\": 0,\n  \"manchas\": 0,\n  \"cicatrices\": 0,\n  \"oleocelosis\": 0,\n  \"dano_mecanico\": 0,\n  \"amarillo\": 0,\n  \"verde_claro\": 0,\n  \"verde_oscuro\": 0,\n  \"uniformidad_color\": \"buena\",\n  \"puntaje\": 5,\n  \"clasificacion\": \"SEGUNDA\",\n  \"tamano\": \"mediano\"\n}`
                                     },
                                     { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Pure}` } }
                                 ]
                             }
                         ],
-                        max_tokens: 500
+                        max_tokens: 600
                     })
                 });
 
