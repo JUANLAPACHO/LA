@@ -247,7 +247,7 @@
                                 content: [
                                     {
                                         type: "text",
-                                        text: `Actúa como un Inspector de Control de Calidad Senior experto en empaque y exportación de limones frescos. Analiza minuciosamente la muestra de fruta en la imagen y calcula las métricas requeridas.\n\nSigue estrictamente estos criterios técnicos de evaluación (OPTIMIZADOS PARA SEVERIDAD DE CONTRASTE Y CONTEO DE DEFECTOS):\n1. Conteo de Fruta: Cuenta de forma precisa cuántas unidades de fruta son visibles en la muestra.\n2. Análisis Crítico de Manchas (Severidad y Contraste):\n   - Debes fijarte no solo en el área total ocupada, sino en el CONTEO INDIVIDUAL y el CONTRASTE DE LAS MANCHAS.\n   - Si una fruta tiene pocas manchas, pero estas son oscuras (marrón o negro) y generan un FUERTE CONTRASTE visual contra la cáscara amarilla/verde, debes considerarlo un defecto grave de calidad cosmética.\n   - Cuenta el número de lesiones puntuales severas. Si hay más de 5 puntos negros densos en una sola fruta, el lote se penaliza en puntaje inmediatamente.\n3. Distribución de Métricas de Piel (Suma de Limpia + Manchas + Cicatrices + Oleocelosis + Daño Mecánico debe ser 100%):\n   - Oleocelosis: Manchas aceitosas por colapso de glándulas de flavedo (marrón claro/verdoso hundido).\n   - Daño Mecánico: Cortes, marcas de ramas severas, heridas abiertas o pinchazos.\n   - Cicatrices: Roce de viento (windscar) o marcas suaves y claras ya curadas.\n   - Manchas: Incluye aquí acumulaciones de motas negras, trips densos o melanosis de alto contraste.\n   - Fruta Limpia: Área totalmente sana y libre de imperfecciones físicas o estéticas.\n4. Color (Suma de Amarillo + Verde Claro + Verde Oscuro debe ser 100%).\n5. Reglas de Clasificación y Puntuación (Escala 1 al 10):\n   - PRIMERA (Exportación Premium): Fruta limpia > 85%, oleocelosis < 5% y CERO manchas oscuras/negras de fuerte contraste (máximo 1 o 2 motas milimétricas por fruta).\n   - SEGUNDA (Comercial/Mercado Interno): Presenta manchas moderadas o cicatrices marcadas. Si tiene puntos densos concentrados de alto contraste (como un patrón de picaduras o trips severos), califica aquí de forma obligatoria aunque el resto de la fruta esté limpia. Puntaje máximo: 6 o 7.\n   - DESCARTE (Industria): Oleocelosis severa (>15%), heridas abiertas o fruta visualmente inaceptable.\n\nDevuelve obligatoriamente un objeto JSON plano con esta estructura exacta (los valores numéricos deben ser números enteros del 0 al 100):\n{\n  \"frutas_visibles\": (número),\n  \"fruta_limpia\": (%),\n  \"manchas\": (%),\n  \"cicatrices\": (%),\n  \"oleocelosis\": (%),\n  \"dano_mecanico\": (%),\n  \"amarillo\": (%),\n  \"verde_claro\": (%),\n  \"verde_oscuro\": (%),\n  \"uniformidad_color\": (\"buena\" o \"variable\" o \"pobre\"),\n  \"puntaje\": (número del 1 al 10),\n  \"clasificacion\": (\"PRIMERA\" o \"SEGUNDA\" o \"DESCARTE\"),\n  \"tamano\": (\"grande\" o \"mediano\" o \"pequeño\")\n}`
+                                        text: `Actúa como un Inspector de Control de Calidad Senior extremadamente exigente para el empaque y exportación de limones frescos de alta calidad. Analiza minuciosamente la muestra de fruta en la imagen.\n\nREGLAS DE EVALUACIÓN CRÍTICAS PARA MANCHAS FUERTES Y ALTO CONTRASTE:\n1. Conteo de Fruta: Cuenta cuántas unidades son visibles.\n2. Gravedad por Contraste y Severidad (Regla de oro):\n   - NO te limites a calcular la superficie porcentual ocupada. El CONTRASTE y la INTENSIDAD de las manchas son el factor determinante.\n   - Si detectas manchas de color fuerte (marrón oscuro o negro intenso) que resalten drásticamente contra la cáscara de la fruta, debes clasificarlo automáticamente como un DAÑO MAYOR.\n   - Cuenta los puntos o costras oscuras individuales. Si una sola fruta presenta un agrupamiento de puntos negros densos (como daño por trips severo o melanosis virulenta), esa fruta es inaceptable comercialmente.\n3. Distribución de Métricas de Piel (Suma de Limpia + Manchas + Cicatrices + Oleocelosis + Daño Mecánico debe ser 100%):\n   - Manchas: Incluye aquí acumulaciones de motas negras, trips densos o melanosis de alto contraste.\n   - Oleocelosis: Manchas aceitosas hundidas.\n   - Daño Mecánico: Cortes, pinchazos o heridas abiertas.\n   - Cicatrices: Marcas de viento suaves, claras y completamente curadas.\n   - Fruta Limpia: Superficie 100% sana y estética.\n4. Color: Distribución de Amarillo, Verde Claro y Verde Oscuro (Suma debe ser 100%).\n5. Umbrales de Clasificación Tolerancia Cero (Escala 1 al 10):\n   - PRIMERA (Exportación Premium): Fruta limpia > 90%. Máximo 1 o 2 motas milimétricas casi imperceptibles por fruta. Cero manchas oscuras de alto contraste.\n   - SEGUNDA (Mercado Interno Limpio): Defectos estéticos leves a moderados (como cicatrices claras de viento). Fruta comercialmente aceptable a la vista. Puntaje: 7-8.\n   - DESCARTE (Industria/Rechazo): Si la fruta presenta manchas de fuerte contraste (puntos negros densos, negros concentrados, o costras oscuras), aunque la superficie limpia parezca alta, clasifica obligatoriamente como DESCARTE. Cualquier fruta con agrupamientos de alto contraste visual tiene un puntaje directo de 1 a 5 y va a industria.`
                                     },
                                     { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Pure}` } }
                                 ]
@@ -292,6 +292,13 @@
             records.forEach(rec => {
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50 transition-colors";
+                
+                // Color dinámico según la clasificación para alertar visualmente en la tabla
+                let clasifColor = "bg-slate-50 text-slate-700";
+                if(rec.clasificacion === "PRIMERA") clasifColor = "bg-green-100 text-green-800 font-bold border-green-300";
+                if(rec.clasificacion === "SEGUNDA") clasifColor = "bg-amber-100 text-amber-800 font-bold border-amber-300";
+                if(rec.clasificacion === "DESCARTE") clasifColor = "bg-red-100 text-red-800 font-black border-red-300 animation-pulse";
+
                 tr.innerHTML = `
                     <td class="p-2 font-mono text-blue-600">${rec.lote || ''}</td>
                     <td class="p-2 font-bold">${rec.marca || ''}</td>
@@ -300,7 +307,7 @@
                     <td class="p-2 font-mono">${rec.codigo || ''}</td>
                     <td class="p-2 text-center font-bold">${rec.frutas_visibles || 0}</td>
                     <td class="p-2 text-center bg-green-50 text-green-700 font-bold">${rec.fruta_limpia || 0}%</td>
-                    <td class="p-2 text-center text-amber-700">${rec.manchas || 0}%</td>
+                    <td class="p-2 text-center text-amber-700 font-bold">${rec.manchas || 0}%</td>
                     <td class="p-2 text-center text-orange-700">${rec.cicatrices || 0}%</td>
                     <td class="p-2 text-center text-purple-700">${rec.oleocelosis || 0}%</td>
                     <td class="p-2 text-center text-red-600">${rec.dano_mecanico || 0}%</td>
@@ -309,7 +316,7 @@
                     <td class="p-2 text-center bg-emerald-50 text-emerald-700">${rec.verde_oscuro || 0}%</td>
                     <td class="p-2 italic text-slate-500">${rec.uniformidad_color || ''}</td>
                     <td class="p-2 text-center font-black text-blue-600">${rec.puntaje || 0}</td>
-                    <td class="p-2 uppercase"><span class="px-1.5 py-0.5 border rounded bg-slate-50 text-[10px] font-bold">${rec.clasificacion || ''}</span></td>
+                    <td class="p-2 uppercase"><span class="px-1.5 py-0.5 border rounded text-[10px] ${clasifColor}">${rec.clasificacion || ''}</span></td>
                     <td class="p-2 text-slate-500">${rec.tamano || ''}</td>
                     <td class="p-2 text-slate-400 font-normal whitespace-nowrap">${rec.fecha || ''}</td>
                 `;
