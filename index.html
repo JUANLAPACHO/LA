@@ -83,20 +83,30 @@
                         </div>
                     </div>
 
-                    <div id="iaResultsPanel" class="hidden bg-purple-50 border border-purple-200 rounded-2xl p-4 space-y-2 text-xs">
-                        <div class="flex justify-between items-center border-b border-purple-100 pb-1">
-                          <span class="font-bold text-purple-950">📊 MÉTRICAS CALCULADAS POR IA</span>
-                          <span id="iaVisibles" class="bg-purple-200 text-purple-800 font-bold px-1.5 py-0.5 rounded text-[10px]">0 uds</span>
+                    <!-- PANEL DE RESULTADOS CON MÉTRICA DE CONFIANZA DINÁMICA -->
+                    <div id="iaResultsPanel" class="hidden rounded-2xl p-4 space-y-2 text-xs transition-colors duration-300">
+                        <div class="flex justify-between items-center border-b pb-1 id-panel-header">
+                          <span class="font-bold text-slate-900">📊 MÉTRICAS CALCULADAS POR IA</span>
+                          <span id="iaVisibles" class="bg-white text-slate-800 font-bold px-1.5 py-0.5 rounded text-[10px] border">0 uds</span>
                         </div>
-                        <div class="grid grid-cols-2 gap-y-1 text-slate-600 text-[11px]">
+                        <div class="grid grid-cols-2 gap-y-1 text-slate-700 text-[11px] pt-1">
                           <div>Limpia: <span id="iaLimpia" class="font-bold text-slate-900">0%</span></div>
                           <div>Manchas: <span id="iaManchas" class="font-bold text-slate-900">0%</span></div>
                           <div>Cicatrices: <span id="iaCicatrices" class="font-bold text-slate-900">0%</span></div>
                           <div>Oleocelosis: <span id="iaOleocelosis" class="font-bold text-slate-900">0%</span></div>
                           <div>D. Mecánico: <span id="iaDano" class="font-bold text-slate-900">0%</span></div>
-                          <div>Puntaje: <span id="iaPuntaje" class="font-bold text-purple-700">0/10</span></div>
+                          <div>Puntaje: <span id="iaPuntaje" class="font-bold text-slate-900">0/10</span></div>
                           <div>Clasificación: <span id="iaClasif" class="font-bold text-slate-900">-</span></div>
                           <div>Tamaño: <span id="iaTamano" class="font-bold text-slate-900">-</span></div>
+                        </div>
+                        
+                        <!-- BLOQUE DE CONFIANZA VISUAL -->
+                        <div class="mt-3 pt-2 border-t flex flex-col gap-1" id="confianzaContainer">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold uppercase text-[10px] tracking-wider text-slate-600">Confianza del Análisis:</span>
+                                <span id="iaConfianzaBadge" class="font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wide">-</span>
+                            </div>
+                            <p id="iaConfianzaMensaje" class="text-[10px] italic leading-tight text-slate-500 mt-0.5"></p>
                         </div>
                     </div>
 
@@ -113,7 +123,7 @@
                 </div>
                 
                 <div class="overflow-x-auto border rounded-xl">
-                    <table class="w-full text-left border-collapse text-[11px] min-w-[1200px]">
+                    <table class="w-full text-left border-collapse text-[11px] min-w-[1300px]">
                         <thead>
                             <tr class="border-b border-slate-200 bg-slate-50 text-slate-500 uppercase text-[9px] tracking-wider font-bold">
                                 <th class="p-2">Lote</th>
@@ -134,6 +144,7 @@
                                 <th class="p-2 text-center">Puntaje</th>
                                 <th class="p-2">Clasificación</th>
                                 <th class="p-2">Tamaño</th>
+                                <th class="p-2 text-center">Confianza IA</th>
                                 <th class="p-2">Fecha</th>
                             </tr>
                         </thead>
@@ -169,6 +180,8 @@
         const iaPuntaje = document.getElementById('iaPuntaje');
         const iaClasif = document.getElementById('iaClasif');
         const iaTamano = document.getElementById('iaTamano');
+        const iaConfianzaBadge = document.getElementById('iaConfianzaBadge');
+        const iaConfianzaMensaje = document.getElementById('iaConfianzaMensaje');
 
         let currentBase64Image = ""; 
         let lastIaAnalysis = null; 
@@ -247,8 +260,7 @@
                                 content: [
                                     {
                                         type: "text",
-                                        // PROMPT OPTIMIZADO PARA EVITAR ERRORES DE SINTAXIS Y NORMALIZAR SOMBRAS
-                                        text: `Actúa como un Inspector de Control de Calidad Senior en empaque de limones frescos de exportación. Analiza minuciosamente la muestra de fruta de la imagen.\n\nDebes retornar obligatoriamente un formato json válido.\n\nREGLA MATEMÁTICA PARA FRUTA LIMPIA:\n- "frutas_visibles": Cuenta de forma consistente el número total de frutas individuales visibles.\n- "fruta_limpia": Calcula el porcentaje como el número de frutas completamente limpias (sin heridas severas ni manchas negras de alto contraste) dividido el total de frutas_visibles. Multiplica por 100.\n  *Nota:* Ignora sombras suaves de empaque o variaciones leves de luz natural entre las frutas para evitar falsos positivos de defectos.\n\nDISTRIBUCIÓN DE DEFECTOS (Suma de fruta_limpia + manchas + cicatrices + oleocelosis + dano_mecanico debe dar 100%):\n- Distribuye el porcentaje restante entre los tipos de defectos reales observados en la corteza.\n\nCRITERIOS DE CLASIFICACIÓN:\n- PRIMERA: fruta_limpia >= 90%.\n- SEGUNDA: fruta_limpia entre 70% y 89%.\n- DESCARTE: fruta_limpia < 70% o daños severos de pudrición.\n\nDevuelve exactamente esta estructura json:\n{\n  \"frutas_visibles\": 0,\n  \"fruta_limpia\": 0,\n  \"manchas\": 0,\n  \"cicatrices\": 0,\n  \"oleocelosis\": 0,\n  \"dano_mecanico\": 0,\n  \"amarillo\": 0,\n  \"verde_claro\": 0,\n  \"verde_oscuro\": 0,\n  \"uniformidad_color\": \"buena\",\n  \"puntaje\": 5,\n  \"clasificacion\": \"SEGUNDA\",\n  \"tamano\": \"mediano\"\n}`
+                                        text: `Actúa como un Inspector de Control de Calidad Senior en empaque de limones frescos de exportación. Analiza minuciosamente la muestra de fruta de la imagen.\n\nDebes retornar obligatoriamente un formato json válido.\n\nREGLA MATEMÁTICA PARA FRUTA LIMPIA:\n- "frutas_visibles": Cuenta el número total de frutas individuales visibles.\n- "fruta_limpia": Porcentaje de frutas completamente limpias (sin heridas severas ni manchas de alto contraste) dividido el total.\n  *Nota:* Ignora sombras suaves de empaque para evitar falsos positivos.\n\nEVALUACIÓN DE CONFIANZA TÉCNICA (OBLIGATORIO):\nDetermina críticamente el estado de la fotografía recibida:\n- "ALTA": Foto perfectamente enfocada, nítida, sin reflejos excesivos ni sombras cruzadas fuertes. Permite ver imperfecciones de la piel con total claridad.\n- "MEDIA": Foto aceptable pero con ligeros problemas de ángulo, sombras o reflejos que cubren un porcentaje de la fruta.\n- "BAJA": Foto borrosa, desenfocada, demasiado lejana, o con reflejos de luz blanca que ciegan la detección visual.\n\nDevuelve exactamente esta estructura json:\n{\n  \"frutas_visibles\": 0,\n  \"fruta_limpia\": 0,\n  \"manchas\": 0,\n  \"cicatrices\": 0,\n  \"oleocelosis\": 0,\n  \"dano_mecanico\": 0,\n  \"amarillo\": 0,\n  \"verde_claro\": 0,\n  \"verde_oscuro\": 0,\n  \"uniformidad_color\": \"buena\",\n  \"puntaje\": 5,\n  \"clasificacion\": \"SEGUNDA\",\n  \"tamano\": \"mediano\",\n  \"confianza_analisis\": \"ALTA\",\n  \"motivo_confianza\": \"Justificación breve de las condiciones de luz/nitidez observadas\"\n}`
                                     },
                                     { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Pure}` } }
                                 ]
@@ -264,6 +276,7 @@
                 const iaJson = JSON.parse(data.choices[0].message.content);
                 lastIaAnalysis = iaJson;
 
+                // Actualizar métricas básicas
                 iaVisibles.innerText = `${iaJson.frutas_visibles} uds`;
                 iaLimpia.innerText = `${iaJson.fruta_limpia}%`;
                 iaManchas.innerText = `${iaJson.manchas}%`;
@@ -273,6 +286,27 @@
                 iaPuntaje.innerText = `${iaJson.puntaje}/10`;
                 iaClasif.innerText = String(iaJson.clasificacion).toUpperCase();
                 iaTamano.innerText = iaJson.tamano;
+
+                // Lógica de visualización dinámica de confianza
+                const confianza = String(iaJson.confianza_analisis).toUpperCase();
+                iaConfianzaBadge.innerText = confianza;
+                iaConfianzaMensaje.innerText = iaJson.motivo_confianza || "";
+
+                // Resetear clases de estilos previas del panel
+                iaResultsPanel.className = "rounded-2xl p-4 space-y-2 text-xs transition-all border";
+
+                if (confianza === "ALTA") {
+                    iaResultsPanel.classList.add("bg-green-50", "border-green-200");
+                    iaConfianzaBadge.className = "font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-green-200 text-green-800";
+                } else if (confianza === "MEDIA") {
+                    iaResultsPanel.classList.add("bg-amber-50", "border-amber-200");
+                    iaConfianzaBadge.className = "font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-amber-200 text-amber-800";
+                    iaConfianzaMensaje.innerText += " ⚠️ Sugerencia: Estabilizar el teléfono y evitar reflejos.";
+                } else {
+                    iaResultsPanel.classList.add("bg-red-50", "border-red-200");
+                    iaConfianzaBadge.className = "font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-red-200 text-red-800 animate-pulse";
+                    iaConfianzaMensaje.innerText += " ❌ Alerta: Foto no apta. Se recomienda descartar este registro y tomar la foto de nuevo.";
+                }
 
                 iaResultsPanel.classList.remove('hidden');
                 submitBtn.disabled = false;
@@ -299,6 +333,11 @@
                 if(rec.clasificacion === "SEGUNDA") clasifColor = "bg-amber-100 text-amber-800 font-bold border-amber-300";
                 if(rec.clasificacion === "DESCARTE") clasifColor = "bg-red-100 text-red-800 font-black border-red-300";
 
+                let confColor = "text-slate-500 font-medium";
+                if(rec.confianza_analisis === "ALTA") confColor = "text-green-600 font-bold";
+                if(rec.confianza_analisis === "MEDIA") confColor = "text-amber-600 font-bold";
+                if(rec.confianza_analisis === "BAJA") confColor = "text-red-600 font-black";
+
                 tr.innerHTML = `
                     <td class="p-2 font-mono text-blue-600">${rec.lote || ''}</td>
                     <td class="p-2 font-bold">${rec.marca || ''}</td>
@@ -318,6 +357,7 @@
                     <td class="p-2 text-center font-black text-blue-600">${rec.puntaje || 0}</td>
                     <td class="p-2 uppercase"><span class="px-1.5 py-0.5 border rounded text-[10px] ${clasifColor}">${rec.clasificacion || ''}</span></td>
                     <td class="p-2 text-slate-500">${rec.tamano || ''}</td>
+                    <td class="p-2 text-center uppercase text-[10px] ${confColor}">${rec.confianza_analisis || 'ALTA'}</td>
                     <td class="p-2 text-slate-400 font-normal whitespace-nowrap">${rec.fecha || ''}</td>
                 `;
                 tableBodyDesktop.appendChild(tr);
