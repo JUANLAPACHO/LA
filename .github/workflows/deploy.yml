@@ -18,16 +18,16 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ steps: deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4 # Versión actualizada para evitar deprecación
+        uses: actions/checkout@v4
 
       - name: Setup Node.js Environment
-        uses: actions/setup-node@v4 # Forzar el uso del entorno Node actualizado
+        uses: actions/setup-node@v4
         with:
-          node-version: '22' # Uso de versión LTS estable en 2026
+          node-version: '22'
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -35,7 +35,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.' # Sube la raíz donde está tu index.html
+          path: '.'
 
       - name: Deploy to GitHub Pages
         id: deployment
