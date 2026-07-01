@@ -71,7 +71,7 @@
                         <label for="photoInput" class="cursor-pointer block space-y-2">
                             <div class="text-3xl">📸</div>
                             <div class="text-xs font-bold text-blue-600 uppercase tracking-wide">Abrir Cámara y Tomar Foto</div>
-                            <p class="text-[10px] text-slate-400">Se activará la cámara del dispositivo para capturar el lote</p>
+                            <p class="text-[10px] text-slate-400">Captura la etiqueta o los limones según el paso actual</p>
                         </label>
                         <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden"/>
                         
@@ -80,7 +80,7 @@
                                 <img id="imagePreview" src="" alt="Vista previa" class="w-full h-full object-cover">
                                 
                                 <div class="absolute inset-4 border-2 border-dashed border-white/40 rounded-lg pointer-events-none flex items-center justify-center">
-                                    <span class="text-[9px] text-white/60 uppercase tracking-wider absolute top-2">Alinea los bordes de la caja aquí</span>
+                                    <span class="text-[9px] text-white/60 uppercase tracking-wider absolute top-2">Alinea los bordes aquí</span>
                                 </div>
 
                                 <div class="absolute top-3 right-3 bg-black/60 backdrop-blur-sm p-2 rounded-xl flex flex-col items-center gap-1 pointer-events-none">
@@ -92,9 +92,14 @@
                                 </div>
                             </div>
 
-                            <button type="button" id="analyzeIaBtn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition shadow-sm">
-                                🧠 Analizar Calidad con IA
-                            </button>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" id="analyzeLabelBtn" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition shadow-sm">
+                                    🏷️ Escanear Etiqueta
+                                </button>
+                                <button type="button" id="analyzeIaBtn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition shadow-sm">
+                                    🧠 Analizar Fruta
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -178,6 +183,7 @@
         const photoInput = document.getElementById('photoInput');
         const previewContainer = document.getElementById('previewContainer');
         const imagePreview = document.getElementById('imagePreview');
+        const analyzeLabelBtn = document.getElementById('analyzeLabelBtn');
         const analyzeIaBtn = document.getElementById('analyzeIaBtn');
         const apiKeyInput = document.getElementById('apiKeyInput');
         const submitBtn = document.getElementById('submitBtn');
@@ -233,14 +239,14 @@
                 const img = new Image();
                 img.onload = function() {
                     const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 800; 
+                    const MAX_WIDTH = 1000; 
                     const scaleSize = MAX_WIDTH / img.width;
                     canvas.width = MAX_WIDTH;
                     canvas.height = img.height * scaleSize;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     
-                    currentBase64Image = canvas.toDataURL('image/jpeg', 0.80);
+                    currentBase64Image = canvas.toDataURL('image/jpeg', 0.85);
                     imagePreview.src = currentBase64Image;
                     previewContainer.classList.remove('hidden');
                     iaResultsPanel.classList.add('hidden'); 
@@ -282,6 +288,63 @@
             levelBubble.classList.add('bg-slate-400');
         }
 
+        // NUEVO BOTÓN: ESCANEAR Y EXTRAER DATOS DE LA ETIQUETA
+        analyzeLabelBtn.addEventListener('click', async () => {
+            const apiKey = apiKeyInput.value.trim();
+            if(!apiKey) { alert("🔑 Introduce tu API Key de OpenAI para usar la visión artificial."); return; }
+            localStorage.setItem('openai_apikey', apiKey);
+
+            analyzeLabelBtn.disabled = true;
+            analyzeLabelBtn.innerText = "🏷️ Leyendo etiqueta...";
+
+            const base64Pure = currentBase64Image.split(',')[1];
+
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify({
+                        model: "gpt-4o",
+                        response_format: { type: "json_object" }, 
+                        messages: [
+                            {
+                                role: "user",
+                                content: [
+                                    {
+                                        type: "text",
+                                        text: "Analiza minuciosamente la imagen de la etiqueta de la caja de limones. Tu objetivo es extraer los datos clave de trazabilidad. Debes responder estrictamente en un formato JSON válido.\n\nGUÍA DE EXTRACCIÓN (MUY ESTRICTA):\n1. 'lote': Busca el número de tarea o lote. Suele ubicarse cerca del código de barra inferior o en campos como 'Tarea' o 'Lote'. Extrae solo el número limpio (Ej: '137-1AC-3006' o similar).\n2. 'marca': Identifica el nombre de la marca comercial grande impresa en la caja o etiqueta (por ejemplo, 'MARIAS', 'SARA', etc.).\n3. 'calibre': Encuentra el tamaño numérico del limón, usualmente rotulado bajo 'Calibre/Size' (Ej: '140', '138', '115').\n4. 'destino': Determina el mercado de exportación basado en los certificados legibles. Si dice 'Cert UE', el destino es 'UE'. Si dice 'Cert US', es 'US'. Si no especifica, pon un mercado genérico razonable.\n5. 'codigo': Busca cadenas compuestas con guiones específicas del lote (como '93-1A', '83-1A' o números de UP/guía de empaque).\n\nDevuelve exactamente esta estructura JSON:\n{\n  \"lote\": \"\",\n  \"marca\": \"\",\n  \"calibre\": \"\",\n  \"destino\": \"\",\n  \"codigo\": \"\"\n}"
+                                    },
+                                    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Pure}` } }
+                                ]
+                            }
+                        ],
+                        max_tokens: 200
+                    })
+                });
+
+                const data = await response.json();
+                if(data.error) throw new Error(data.error.message);
+
+                const labelJson = JSON.parse(data.choices[0].message.content);
+
+                // Autocompletar los campos de texto del formulario
+                if(labelJson.lote) document.getElementById('lote').value = labelJson.lote;
+                if(labelJson.marca) document.getElementById('marca').value = labelJson.marca;
+                if(labelJson.calibre) document.getElementById('calibre').value = labelJson.calibre;
+                if(labelJson.destino) document.getElementById('destino').value = labelJson.destino;
+                if(labelJson.codigo) document.getElementById('codigo').value = labelJson.codigo;
+
+                alert("✅ Campos de la etiqueta cargados con éxito. Ahora puedes tomar la foto a los limones.");
+
+            } catch (err) {
+                alert("❌ Error al escanear etiqueta: " + err.message);
+            } finally {
+                analyzeLabelBtn.disabled = false;
+                analyzeLabelBtn.innerText = "🏷️ Escanear Etiqueta";
+            }
+        });
+
+        // BOTÓN EXISTENTE: ANALIZAR LA CALIDAD DE LA FRUTA
         analyzeIaBtn.addEventListener('click', async () => {
             const apiKey = apiKeyInput.value.trim();
             if(!apiKey) { alert("🔑 Introduce tu API Key de OpenAI para usar la visión artificial."); return; }
@@ -305,7 +368,7 @@
                                 content: [
                                     {
                                         type: "text",
-                                        text: "Debes analizar la imagen y retornar obligatoriamente un formato JSON válido. Actúa como un Inspector de Control de Calidad Senior en empaque de limones frescos de exportación.\n\nINSTRUCCIÓN DE FILTRADO DE ENTORNO (CRÍTICA):\n1. Localiza EXCLUSIVAMENTE los limones esféricos/ovalados en la imagen.\n2. Ignora por completo el suelo, bordes de cajas de cartón, ropa o manos.\n\nINSTRUCCIÓN PARA EXCLUSIÓN DE ETIQUETAS COMERCIALES (MEJORADA):\n- Escanea la superficie buscando stickers adhesivos comerciales (marcas, logos, códigos de barras).\n- NO cuentes el sticker en sí mismo como un defecto (no es mancha ni daño mecánico). Sin embargo, analiza minuciosamente el resto de la corteza expuesta de ese mismo limón. Si la corteza libre de sticker tiene manchas, trips, cicatrices o decoloraciones, DEBES restar porcentaje de fruta limpia e identificar el defecto con total severidad.\n\nREGLA MATEMÁTICA DE COHERENCIA ENTRE LIMPIEZA Y PUNTAJE (CRÍTICA):\n- 'frutas_visibles': Cuenta el número total de limones individuales detectados.\n- 'fruta_limpia': Porcentaje de fruta comercialmente óptima (sin defectos de piel ni descarte por color verde extremo si el lote es comercializado como amarillo). Tu resultado debe alinearse a una inspección humana rigurosa.\n- EL PUNTAJE Y LA FRUTA LIMPIA DEBEN SER COHERENTES: Un valor de fruta_limpia del 95-100% OBLIGATORIAMENTE debe resultar en un puntaje de 9 o 10. Si decides que el lote merece un puntaje de 5/10 por falta de uniformidad, coloración deficiente o manchas, el porcentaje de 'fruta_limpia' DEBE bajar proporcionalmente (por ejemplo, situándose entre 50% y 75%). QUEDAN PROHIBIDOS los resultados de fruta_limpia alta con puntajes bajos o viceversa.\n\nREGLA MATEMÁTICA DE COLOR:\n- Clasifica el color en: 'amarillo', 'verde_claro' y 'verde_oscuro'.\n- OBLIGATORIAMENTE, la suma de (amarillo + verde_claro + verde_oscuro) DEBE SER EXACTAMENTE IGUAL A 100.\n\nDevuelve exactamente esta estructura JSON:\n{\n  \"frutas_visibles\": 0,\n  \"fruta_limpia\": 0,\n  \"manchas\": 0,\n  \"cicatrices\": 0,\n  \"oleocelosis\": 0,\n  \"dano_mecanico\": 0,\n  \"amarillo\": 0,\n  \"verde_claro\": 0,\n  \"verde_oscuro\": 0,\n  \"uniformidad_color\": \"buena\",\n  \"puntaje\": 5,\n  \"clasificacion\": \"SEGUNDA\",\n  \"tamano\": \"mediano\",\n  \"confianza_analisis\": \"ALTA\",\n  \"motivo_confianza\": \"Justificación breve sobre la nitidez de las cortezas, defectos evaluados y la coherencia matemática entre el puntaje asignado y el porcentaje de fruta limpia\"\n}"
+                                        text: "Debes analizar la imagen y retornar obligatoriamente un formato JSON válido. Actúa como un Inspector de Control de Calidad Senior en empaque de limones frescos de exportación.\n\nINSTRUCCIÓN DE FILTRADO DE ENTORNO (CRÍTICA):\n1. Localiza EXCLUSIVAMENTE los limones esféricos/ovalados en la imagen.\n2. Ignora por completo el suelo, bordes de cajas de cartón, ropa o manos.\n\nINSTRUCCIÓN PARA EXCLUSIÓN DE ETIQUETAS COMERCIALES (MEJORADA):\n- Escanea la superficie buscando stickers adhesivos comerciales (marcas, logos, códigos de barras).\n- NO cuentes el sticker en sí mismo como un defecto (no es mancha ni daño mecánico). Sin embargo, analiza minuciosamente el resto de la corteza expuesta de ese mismo limón. Si la corteza libre de sticker tiene manchas, trips, cicatrices o decoloraciones, DEBES restar porcentaje de fruta limpia e identificar el defecto con total severidad.\n\nREGLA MATEMÁTICA DE COHERENCIA ENTRE LIMPIEZA Y PUNTAJE (CRÍTICA):\n- 'frutas_visibles': Cuenta el número total de limones individuales detectados.\n- 'fruta_limpia': Porcentaje de fruta comercialmente óptima (sin defectos de piel ni descarte por color verde extremo si el lote es comercializado como amarillo). Tu resultado debe alinearse a una inspección humana rigurosa.\n- EL PUNTAJE Y LA FRUTA LIMPIA DEBEN SER COHERENTES: Un valor de fruta_limpia del 95-100% OBLIGATORIAMENTE debe resultar en un puntaje de 9 o 10. Si decides que el lote merece un puntaje de 5/10 por falta de uniformidad, coloración deficiente o manchas, el porcentaje de 'fruta_limpia' DEBE bajar proporcionalmente (por ejemplo, situándose entre 50% y 75%). QUEDAN PROHIBIDOS los resultados de fruta_limpia alta con puntajes bajos o viceversa.\n\nREGLA MATEMÁTICA DE COLOR:\n- Clasifica el color en: 'amarillo', 'verde_claro' and 'verde_oscuro'.\n- OBLIGATORIAMENTE, la suma de (amarillo + verde_claro + verde_oscuro) DEBE SER EXACTAMENTE IGUAL A 100.\n\nDevuelve exactamente esta estructura JSON:\n{\n  \"frutas_visibles\": 0,\n  \"fruta_limpia\": 0,\n  \"manchas\": 0,\n  \"cicatrices\": 0,\n  \"oleocelosis\": 0,\n  \"dano_mecanico\": 0,\n  \"amarillo\": 0,\n  \"verde_claro\": 0,\n  \"verde_oscuro\": 0,\n  \"uniformidad_color\": \"buena\",\n  \"puntaje\": 5,\n  \"clasificacion\": \"SEGUNDA\",\n  \"tamano\": \"mediano\",\n  \"confianza_analisis\": \"ALTA\",\n  \"motivo_confianza\": \"Justificación breve sobre la nitidez de las cortezas, defectos evaluados y la coherencia matemática entre el puntaje asignado y el porcentaje de fruta limpia\"\n}"
                                     },
                                     { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Pure}` } }
                                 ]
