@@ -68,17 +68,17 @@
                         <input type="text" id="codigo" required placeholder="Ej: 102-1A" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-slate-50/50">
                     </div>
 
-                    <!-- CONTENEDOR DE CÁMARA CON GUÍA Y NIVEL -->
+                    <!-- CONTENEDOR DE CÁMARA - FOTO DE ETIQUETA -->
                     <div class="border-2 border-dashed border-slate-300 rounded-2xl p-4 bg-slate-50 text-center relative hover:bg-slate-100 transition">
                         <label for="photoInput" class="cursor-pointer block space-y-2">
-                            <div class="text-3xl">📸</div>
-                            <div class="text-xs font-bold text-blue-600 uppercase tracking-wide">Abrir Cámara y Tomar Foto</div>
-                            <p class="text-[10px] text-slate-400">Captura la etiqueta o los limones según el paso actual</p>
+                            <div class="text-3xl">🏷️</div>
+                            <div class="text-xs font-bold text-blue-600 uppercase tracking-wide">Foto de la Etiqueta</div>
+                            <p class="text-[10px] text-slate-400">Para extraer lote, marca, calibre, destino y código</p>
                         </label>
                         <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden"/>
                         
                         <div id="previewContainer" class="mt-3 hidden border-t border-slate-200 pt-3 space-y-2 relative">
-                            <div class="relative w-full h-64 rounded-xl overflow-hidden border border-slate-200 shadow-inner bg-black">
+                            <div class="relative w-full h-48 rounded-xl overflow-hidden border border-slate-200 shadow-inner bg-black">
                                 <img id="imagePreview" src="" alt="Vista previa" class="w-full h-full object-cover">
                                 
                                 <div class="absolute inset-4 border-2 border-dashed border-white/40 rounded-lg pointer-events-none flex items-center justify-center">
@@ -94,15 +94,47 @@
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-2">
-                                <button type="button" id="analyzeLabelBtn" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition shadow-sm">
-                                    🏷️ Escanear Etiqueta
-                                </button>
-                                <button type="button" id="analyzeIaBtn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition shadow-sm">
-                                    🧠 Analizar Fruta
-                                </button>
+                            <button type="button" id="analyzeLabelBtn" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition shadow-sm">
+                                🏷️ Escanear Etiqueta
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- CONTENEDOR DE CÁMARA - MUESTRA DE FRUTAS (3 FOTOS) -->
+                    <div class="border-2 border-dashed border-purple-300 rounded-2xl p-4 bg-purple-50/40 text-center space-y-3">
+                        <div>
+                            <div class="text-3xl">🍋</div>
+                            <div class="text-xs font-bold text-purple-700 uppercase tracking-wide">Muestra de Frutas (3 fotos)</div>
+                            <p class="text-[10px] text-slate-500 mt-1">Sacá 3 limones sueltos de distintas partes del lote (o el mismo limón girado) para que la IA vea la superficie real, no solo lo que se ve en el cajón</p>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="sample-slot" data-slot="0">
+                                <label class="cursor-pointer block h-20 rounded-xl border-2 border-dashed border-slate-300 bg-white overflow-hidden flex items-center justify-center text-[10px] text-slate-400">
+                                    <span class="slot-placeholder">Foto 1</span>
+                                    <img class="slot-img hidden w-full h-full object-cover" src="" alt="Muestra 1">
+                                    <input type="file" class="sampleInput hidden" data-slot="0" accept="image/*" capture="environment"/>
+                                </label>
+                            </div>
+                            <div class="sample-slot" data-slot="1">
+                                <label class="cursor-pointer block h-20 rounded-xl border-2 border-dashed border-slate-300 bg-white overflow-hidden flex items-center justify-center text-[10px] text-slate-400">
+                                    <span class="slot-placeholder">Foto 2</span>
+                                    <img class="slot-img hidden w-full h-full object-cover" src="" alt="Muestra 2">
+                                    <input type="file" class="sampleInput hidden" data-slot="1" accept="image/*" capture="environment"/>
+                                </label>
+                            </div>
+                            <div class="sample-slot" data-slot="2">
+                                <label class="cursor-pointer block h-20 rounded-xl border-2 border-dashed border-slate-300 bg-white overflow-hidden flex items-center justify-center text-[10px] text-slate-400">
+                                    <span class="slot-placeholder">Foto 3</span>
+                                    <img class="slot-img hidden w-full h-full object-cover" src="" alt="Muestra 3">
+                                    <input type="file" class="sampleInput hidden" data-slot="2" accept="image/*" capture="environment"/>
+                                </label>
                             </div>
                         </div>
+
+                        <button type="button" id="analyzeIaBtn" disabled class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition shadow-sm disabled:opacity-30 disabled:cursor-not-allowed">
+                            🧠 Analizar Fruta (0/3 fotos)
+                        </button>
                     </div>
 
                     <!-- PANEL DE RESULTADOS DE IA -->
@@ -143,6 +175,7 @@
                     <h2 class="text-lg sm:text-xl font-bold text-slate-700">Historial Real (Desde Google Sheets)</h2>
                     <span id="syncStatus" class="text-xs text-slate-400">🔄 Sincronizando...</span>
                 </div>
+
                 
                 <div class="overflow-x-auto border rounded-xl">
                     <table class="w-full text-left border-collapse text-[11px] min-w-[1300px]">
@@ -267,32 +300,66 @@
             }
         }
 
-        photoInput.addEventListener('change', function(e) {
+        function comprimirImagen(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 1000;
+                        const scaleSize = MAX_WIDTH / img.width;
+                        canvas.width = MAX_WIDTH;
+                        canvas.height = img.height * scaleSize;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.85));
+                    };
+                    img.onerror = reject;
+                    img.src = event.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        photoInput.addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) { currentBase64Image = ""; previewContainer.classList.add('hidden'); return; }
+            currentBase64Image = await comprimirImagen(file);
+            imagePreview.src = currentBase64Image;
+            previewContainer.classList.remove('hidden');
+        });
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 1000; 
-                    const scaleSize = MAX_WIDTH / img.width;
-                    canvas.width = MAX_WIDTH;
-                    canvas.height = img.height * scaleSize;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    
-                    currentBase64Image = canvas.toDataURL('image/jpeg', 0.85);
-                    imagePreview.src = currentBase64Image;
-                    previewContainer.classList.remove('hidden');
-                    iaResultsPanel.classList.add('hidden'); 
-                    lastIaAnalysis = null;
-                    submitBtn.disabled = true;
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
+        // MUESTRA DE FRUTAS: 3 fotos individuales
+        let sampleImages = [null, null, null];
+        const sampleSlots = document.querySelectorAll('.sample-slot');
+
+        function actualizarBotonAnalizar() {
+            const completas = sampleImages.filter(Boolean).length;
+            analyzeIaBtn.innerText = `🧠 Analizar Fruta (${completas}/3 fotos)`;
+            analyzeIaBtn.disabled = completas < 3;
+        }
+
+        sampleSlots.forEach((slot) => {
+            const input = slot.querySelector('.sampleInput');
+            const img = slot.querySelector('.slot-img');
+            const placeholder = slot.querySelector('.slot-placeholder');
+            const idx = parseInt(slot.dataset.slot, 10);
+
+            input.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const base64 = await comprimirImagen(file);
+                sampleImages[idx] = base64;
+                img.src = base64;
+                img.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                iaResultsPanel.classList.add('hidden');
+                lastIaAnalysis = null;
+                submitBtn.disabled = true;
+                actualizarBotonAnalizar();
+            });
         });
 
         if (window.DeviceOrientationEvent) {
@@ -384,12 +451,16 @@
         analyzeIaBtn.addEventListener('click', async () => {
             const apiKey = apiKeyInput.value.trim();
             if(!apiKey) { alert("🔑 Introduce tu API Key de OpenAI para usar la visión artificial."); return; }
+            if (sampleImages.filter(Boolean).length < 3) { alert("📸 Faltan fotos de la muestra (necesitás las 3)."); return; }
             localStorage.setItem('openai_apikey', apiKey);
 
             analyzeIaBtn.disabled = true;
             analyzeIaBtn.innerText = "🧠 Escaneando muestra...";
 
-            const base64Pure = currentBase64Image.split(',')[1];
+            const imageBlocks = sampleImages.map(img => ({
+                type: "image_url",
+                image_url: { url: img }
+            }));
 
             try {
                 const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -406,13 +477,13 @@
                                 content: [
                                     {
                                         type: "text",
-                                        text: "Actúa como Inspector Senior de control de calidad de empaque de limones, con años de experiencia clasificando fruta cítrica para exportación.\n\nTAREA: Analiza ÚNICAMENTE lo que ves en la imagen. No asumas ni completes datos que no puedas observar. NO clasifiques la fruta ni le pongas un puntaje — eso lo calcula el sistema por separado; vos solo medí lo que ves.\n\nRÚBRICA DE DEFECTOS (aplicá esta escala fija, no una impresión subjetiva):\n- LEVE: el defecto cubre menos del 5% de la superficie visible de la fruta.\n- MODERADO: el defecto cubre entre 5% y 15% de la superficie visible.\n- SEVERO: el defecto cubre más del 15% de la superficie visible.\n\nPara cada categoría de defecto (manchas, cicatrices, oleocelosis, dano_mecanico), asigná un porcentaje numérico según cuánta superficie total de la muestra (no de una sola fruta) está afectada por ese defecto específico, usando la rúbrica de arriba como referencia de escala.\n\nREGLA DE COLOR (obligatoria): amarillo + verde_claro + verde_oscuro = 100.\nREGLA DE LIMPIEZA (obligatoria): fruta_limpia + manchas + cicatrices + oleocelosis + dano_mecanico = 100.\n\nPROCESO: antes de completar los números finales, describí brevemente en el campo 'observaciones' qué defectos ves y en qué proporción aproximada de la muestra, y usá esa descripción para derivar los porcentajes de forma consistente.\n\nSi la imagen no permite ver la fruta con claridad (borrosa, mal enfocada, muy oscura, muy lejos), indicá confianza_analisis: \"BAJA\" y explicá por qué en motivo_confianza — no inventes valores para compensar.\n\nDevuelve exactamente esta estructura JSON, con 'observaciones' primero (SIN los campos puntaje ni clasificacion, esos no te corresponden):\n{\n  \"observaciones\": \"\",\n  \"frutas_visibles\": 0,\n  \"manchas\": 0,\n  \"cicatrices\": 0,\n  \"oleocelosis\": 0,\n  \"dano_mecanico\": 0,\n  \"fruta_limpia\": 0,\n  \"amarillo\": 0,\n  \"verde_claro\": 0,\n  \"verde_oscuro\": 0,\n  \"uniformidad_color\": \"buena\",\n  \"tamano\": \"mediano\",\n  \"confianza_analisis\": \"ALTA\",\n  \"motivo_confianza\": \"\"\n}"
+                                        text: "Actúa como Inspector Senior de control de calidad de empaque de limones, con años de experiencia clasificando fruta cítrica para exportación.\n\nSe te muestran 3 FOTOS de limones individuales, tomados sueltos (no en el cajón) para poder ver la superficie real de la fruta, similar a como un operario los gira en la mano. Tratá las 3 fotos en conjunto como una muestra representativa de todo el lote — no analices cada foto por separado, analizá el conjunto como una sola muestra.\n\nTAREA: Analiza ÚNICAMENTE lo que ves en las 3 imágenes. No asumas ni completes datos que no puedas observar. NO clasifiques la fruta ni le pongas un puntaje — eso lo calcula el sistema por separado; vos solo medí lo que ves.\n\nRÚBRICA DE DEFECTOS (aplicá esta escala fija, no una impresión subjetiva):\n- LEVE: el defecto cubre menos del 5% de la superficie visible de la fruta.\n- MODERADO: el defecto cubre entre 5% y 15% de la superficie visible.\n- SEVERO: el defecto cubre más del 15% de la superficie visible.\n\nPara cada categoría de defecto (manchas, cicatrices, oleocelosis, dano_mecanico), asigná un porcentaje numérico según cuánta superficie total de las 3 muestras está afectada por ese defecto específico, usando la rúbrica de arriba como referencia de escala.\n\nREGLA DE COLOR (obligatoria): amarillo + verde_claro + verde_oscuro = 100.\nREGLA DE LIMPIEZA (obligatoria): fruta_limpia + manchas + cicatrices + oleocelosis + dano_mecanico = 100.\n\nPROCESO: antes de completar los números finales, describí brevemente en el campo 'observaciones' qué defectos ves en cada una de las 3 fotos y en qué proporción aproximada, y usá esa descripción para derivar los porcentajes de forma consistente.\n\n'frutas_visibles' debe ser la cantidad real de frutas distintas mostradas en las 3 fotos (normalmente 3, salvo que alguna foto muestre más de un limón).\n\nSi alguna de las 3 fotos no permite ver la fruta con claridad (borrosa, mal enfocada, muy oscura), indicá confianza_analisis: \"BAJA\" o \"MEDIA\" y explicá por qué en motivo_confianza — no inventes valores para compensar.\n\nDevuelve exactamente esta estructura JSON, con 'observaciones' primero (SIN los campos puntaje ni clasificacion, esos no te corresponden):\n{\n  \"observaciones\": \"\",\n  \"frutas_visibles\": 0,\n  \"manchas\": 0,\n  \"cicatrices\": 0,\n  \"oleocelosis\": 0,\n  \"dano_mecanico\": 0,\n  \"fruta_limpia\": 0,\n  \"amarillo\": 0,\n  \"verde_claro\": 0,\n  \"verde_oscuro\": 0,\n  \"uniformidad_color\": \"buena\",\n  \"tamano\": \"mediano\",\n  \"confianza_analisis\": \"ALTA\",\n  \"motivo_confianza\": \"\"\n}"
                                     },
-                                    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Pure}` } }
+                                    ...imageBlocks
                                 ]
                             }
                         ],
-                        max_tokens: 700
+                        max_tokens: 900
                     })
                 });
 
@@ -499,8 +570,7 @@
             } catch (err) {
                 alert("❌ Error: " + err.message);
             } finally {
-                analyzeIaBtn.disabled = false;
-                analyzeIaBtn.innerText = "🧠 Analizar Fruta";
+                actualizarBotonAnalizar();
             }
         });
 
@@ -583,7 +653,15 @@
                 lastIaAnalysis = null;
                 previewContainer.classList.add('hidden');
                 iaResultsPanel.classList.add('hidden');
-                
+
+                sampleImages = [null, null, null];
+                sampleSlots.forEach((slot) => {
+                    slot.querySelector('.slot-img').classList.add('hidden');
+                    slot.querySelector('.slot-img').src = "";
+                    slot.querySelector('.slot-placeholder').classList.remove('hidden');
+                });
+                actualizarBotonAnalizar();
+
                 fetchRecordsFromSheets();
             } catch (err) {
                 alert("❌ Error al guardar en Sheets.");
