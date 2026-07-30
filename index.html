@@ -358,14 +358,12 @@
 
                 let iaJson = JSON.parse(data.choices[0].message.content.replace(/```json|```/g, '').trim());
 
-                // Cálculo de clasificación puro basado en los datos reales de la foto
                 const { puntaje, clasificacion } = calcularPuntajeYClasificacion(iaJson.fruta_limpia || 0);
                 iaJson.puntaje = puntaje;
                 iaJson.clasificacion = clasificacion;
 
                 lastIaAnalysis = iaJson;
 
-                // Renderizado en pantalla
                 iaVisibles.innerText = `${iaJson.frutas_visibles || 0} uds`;
                 iaLimpia.innerText = `${iaJson.fruta_limpia || 0}%`;
                 iaManchas.innerText = `${iaJson.manchas || 0}%`;
@@ -400,7 +398,7 @@
             }
         });
 
-        // GUARDADO DE DATOS
+        // GUARDADO DE DATOS CON FECHA EN FORMATO 24 HORAS
         qcForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!lastIaAnalysis) return;
@@ -408,8 +406,16 @@
             submitBtn.disabled = true;
             submitBtn.innerText = "🚀 Guardando registro...";
 
+            // Formateo explícito de fecha en 24 horas (DD/MM/YYYY HH:mm:ss)
             const now = new Date();
-            const formattedDate = now.toLocaleDateString('es-AR') + ' ' + now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+            const dia = now.getDate();
+            const mes = now.getMonth() + 1;
+            const anio = now.getFullYear();
+            const horas = String(now.getHours()).padStart(2, '0');
+            const minutos = String(now.getMinutes()).padStart(2, '0');
+            const segundos = String(now.getSeconds()).padStart(2, '0');
+
+            const formattedDate = `${dia}/${mes}/${anio} ${horas}:${minutos}:${segundos}`;
 
             const newRecord = {
                 action: "write",
