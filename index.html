@@ -192,7 +192,6 @@
     <!-- SCRIPT DE LÓGICA Y API -->
     <script>
         const GOOGLE_SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAuBWwfv-ILHBH0CuWXO9uoZpcio56-cjfWi7_CqkUJesxKHJwAz0N1A5zPNVkTv9C/exec";
-        const APLICAR_CALIBRACION_HISTORICA = true;
 
         let sampleImages = [null, null, null];
         let lastIaAnalysis = null;
@@ -221,7 +220,7 @@
         const iaConfianzaBadge = document.getElementById('iaConfianzaBadge');
         const iaConfianzaMensaje = document.getElementById('iaConfianzaMensaje');
 
-        // RESTAURAR DATOS GUARDADOS LOCALMENTE AL CARGAR
+        // RESTAURAR DATOS GUARDADOS LOCALMENTE
         const savedApiKey = localStorage.getItem('openai_api_key');
         if (savedApiKey) apiKeyInput.value = savedApiKey;
 
@@ -229,7 +228,6 @@
             localStorage.setItem('openai_api_key', apiKeyInput.value.trim());
         });
 
-        // Carga inicial del caché local si existe
         const localSavedRecords = localStorage.getItem('qc_fruit_records');
         if (localSavedRecords) {
             try {
@@ -283,7 +281,7 @@
             return { puntaje, clasificacion };
         }
 
-        // LEER REGISTROS DESDE GOOGLE SHEETS DE FORMA SEGGURA
+        // LEER REGISTROS DESDE GOOGLE SHEETS
         async function fetchRecordsFromSheets() {
             try {
                 statusBadge.innerText = "Sincronizando...";
@@ -305,7 +303,7 @@
             }
         }
 
-        // ANÁLISIS IA
+        // ANÁLISIS DE IA REAL (SIN CALIBRACIÓN FORZADA)
         analyzeIaBtn.addEventListener('click', async () => {
             const apiKey = apiKeyInput.value.trim();
             if (!apiKey) {
@@ -323,7 +321,7 @@
                 image_url: { url: base64 }
             }));
 
-            const promptText = `Sos un experto inspector de control de calidad de citrus. Analizá estas imágenes de la muestra y devolvé UNICAMENTE un objeto JSON válido con los siguientes datos numéricos/textuales aproximados:
+            const promptText = `Sos un experto inspector de control de calidad de citrus. Analizá estas imágenes de la muestra y devolvé UNICAMENTE un objeto JSON válido evaluando objetivamente lo que ves en las fotos (asegúrate de que los porcentajes sumen lógicamente):
             {
                 "frutas_visibles": número,
                 "fruta_limpia": porcentaje (0-100),
@@ -360,33 +358,19 @@
 
                 let iaJson = JSON.parse(data.choices[0].message.content.replace(/```json|```/g, '').trim());
 
-                if (APLICAR_CALIBRACION_HISTORICA) {
-                    let defectosMayores = (iaJson.manchas || 0) + (iaJson.cicatrices || 0) + (iaJson.oleocelosis || 0) + (iaJson.dano_mecanico || 0);
-                    if (defectosMayores === 0) defectosMayores = 3;
-
-                    let defectosLevesProyectados = Math.round(64 + (defectosMayores * 1.5));
-                    defectosLevesProyectados = Math.min(80, Math.max(60, defectosLevesProyectados));
-
-                    iaJson.fruta_limpia = Math.round(100 - (defectosLevesProyectados + defectosMayores));
-                    iaJson.fruta_limpia = Math.max(12, Math.min(32, iaJson.fruta_limpia));
-
-                    iaJson.manchas = Math.round(defectosLevesProyectados * 0.65);
-                    iaJson.cicatrices = Math.round(defectosLevesProyectados * 0.35);
-                    iaJson.oleocelosis = defectosMayores;
-                    iaJson.dano_mecanico = 0;
-                }
-
+                // Cálculo de clasificación puro basado en los datos reales de la foto
                 const { puntaje, clasificacion } = calcularPuntajeYClasificacion(iaJson.fruta_limpia || 0);
                 iaJson.puntaje = puntaje;
                 iaJson.clasificacion = clasificacion;
 
                 lastIaAnalysis = iaJson;
 
+                // Renderizado en pantalla
                 iaVisibles.innerText = `${iaJson.frutas_visibles || 0} uds`;
-                iaLimpia.innerText = `${iaJson.fruta_limpia}%`;
-                iaManchas.innerText = `${iaJson.manchas}%`;
-                iaCicatrices.innerText = `${iaJson.cicatrices}%`;
-                iaOleocelosis.innerText = `${iaJson.oleocelosis}%`;
+                iaLimpia.innerText = `${iaJson.fruta_limpia || 0}%`;
+                iaManchas.innerText = `${iaJson.manchas || 0}%`;
+                iaCicatrices.innerText = `${iaJson.cicatrices || 0}%`;
+                iaOleocelosis.innerText = `${iaJson.oleocelosis || 0}%`;
                 iaDano.innerText = `${iaJson.dano_mecanico || 0}%`;
                 iaPuntaje.innerText = `${iaJson.puntaje}/10`;
                 iaClasif.innerText = String(iaJson.clasificacion).toUpperCase();
@@ -416,7 +400,7 @@
             }
         });
 
-        // ENVIAR Y GUARDAR INSTANTÁNEAMENTE
+        // GUARDADO DE DATOS
         qcForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!lastIaAnalysis) return;
@@ -440,12 +424,10 @@
                 ...lastIaAnalysis
             };
 
-            // Guardar localmente DE INMEDIATO para asegurar visualización
             records.unshift(newRecord);
             localStorage.setItem('qc_fruit_records', JSON.stringify(records));
             renderData();
 
-            // Enviar a Google Sheets en segundo plano
             try {
                 await fetch(GOOGLE_SHEETS_SCRIPT_URL, {
                     method: "POST",
@@ -454,10 +436,9 @@
                     body: JSON.stringify(newRecord)
                 });
             } catch (err) {
-                console.log("Se guardó localmente. Error enviando a Sheets:", err);
+                console.log("Guardado local correcto. Error de red al sincronizar con Sheets:", err);
             }
 
-            // Limpiar formulario
             qcForm.reset();
             if (savedApiKey || apiKeyInput.value) {
                 apiKeyInput.value = localStorage.getItem('openai_api_key') || '';
