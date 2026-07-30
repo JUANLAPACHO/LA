@@ -17,14 +17,14 @@
                 <p class="text-xs text-slate-500 mt-1">Análisis multimodal con IA & Registro directo en Sheets</p>
             </div>
             <div id="statusBadge" class="text-xs font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                Sincronizando...
+                Cargando datos...
             </div>
         </header>
 
         <!-- FORMULARIO PRINCIPAL -->
         <form id="qcForm" class="bg-white rounded-2xl p-6 shadow-xl border border-slate-100 space-y-6">
             
-            <!-- SECCIÓN API KEY (EN LA APP) -->
+            <!-- SECCIÓN API KEY -->
             <details class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs" open>
                 <summary class="font-bold text-slate-700 cursor-pointer select-none flex items-center gap-2">
                     ⚙️ Configurar Clave de IA (API KEY)
@@ -81,12 +81,10 @@
 
             <hr class="border-slate-100">
 
-            <!-- CAPTURA DE FOTOS EN 3 SLOTS (ABRE CÁMARA DIRECTAMENTE) -->
+            <!-- CAPTURA DE FOTOS EN 3 SLOTS -->
             <div>
                 <label class="block text-xs font-bold text-slate-700 mb-2">Imágenes de Muestra (Hasta 3 tomas con cámara)</label>
                 <div class="grid grid-cols-3 gap-3">
-                    
-                    <!-- Slot 1 -->
                     <div class="sample-slot relative border-2 border-dashed border-slate-300 rounded-xl p-2 text-center cursor-pointer hover:bg-slate-50 transition aspect-square flex flex-col justify-center items-center">
                         <input type="file" accept="image/*" capture="environment" class="slot-input hidden">
                         <img class="slot-img w-full h-full object-cover rounded-lg hidden" alt="Muestra 1">
@@ -95,8 +93,6 @@
                             <p class="text-[10px] font-bold">Tomar Foto 1</p>
                         </div>
                     </div>
-
-                    <!-- Slot 2 -->
                     <div class="sample-slot relative border-2 border-dashed border-slate-300 rounded-xl p-2 text-center cursor-pointer hover:bg-slate-50 transition aspect-square flex flex-col justify-center items-center">
                         <input type="file" accept="image/*" capture="environment" class="slot-input hidden">
                         <img class="slot-img w-full h-full object-cover rounded-lg hidden" alt="Muestra 2">
@@ -105,8 +101,6 @@
                             <p class="text-[10px] font-bold">Tomar Foto 2</p>
                         </div>
                     </div>
-
-                    <!-- Slot 3 -->
                     <div class="sample-slot relative border-2 border-dashed border-slate-300 rounded-xl p-2 text-center cursor-pointer hover:bg-slate-50 transition aspect-square flex flex-col justify-center items-center">
                         <input type="file" accept="image/*" capture="environment" class="slot-input hidden">
                         <img class="slot-img w-full h-full object-cover rounded-lg hidden" alt="Muestra 3">
@@ -115,13 +109,12 @@
                             <p class="text-[10px] font-bold">Tomar Foto 3</p>
                         </div>
                     </div>
-
                 </div>
             </div>
 
             <!-- CONTENEDOR DE BOTÓN Y PREVISUALIZACIÓN -->
             <div id="previewContainer" class="hidden space-y-4">
-                <button type="button" id="analyzeIaBtn" disabled class="w-full py-3 bg.slate-800 bg-[#6CA83B] hover:bg-[#5b9131] text-white text-xs font-bold rounded-xl transition shadow-md">
+                <button type="button" id="analyzeIaBtn" disabled class="w-full py-3 bg-[#6CA83B] hover:bg-[#5b9131] text-white text-xs font-bold rounded-xl transition shadow-md">
                     🤖 Analizar Calidad con IA
                 </button>
             </div>
@@ -155,7 +148,10 @@
 
         <!-- TABLA DE REGISTROS -->
         <div class="bg-white rounded-2xl p-6 shadow-xl border border-slate-100 space-y-4">
-            <h2 class="text-sm font-bold text-slate-800">Inspecciones Recientes</h2>
+            <div class="flex justify-between items-center">
+                <h2 class="text-sm font-bold text-slate-800">Inspecciones Recientes</h2>
+                <button type="button" onclick="limpiarHistorialLocal()" class="text-[10px] text-slate-400 hover:text-red-500 underline">Limpiar vista local</button>
+            </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-slate-600 border-collapse">
                     <thead>
@@ -195,16 +191,13 @@
 
     <!-- SCRIPT DE LÓGICA Y API -->
     <script>
-        // CONFIGURACIONES
         const GOOGLE_SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAuBWwfv-ILHBH0CuWXO9uoZpcio56-cjfWi7_CqkUJesxKHJwAz0N1A5zPNVkTv9C/exec";
         const APLICAR_CALIBRACION_HISTORICA = true;
 
-        // ESTADOS DE LA APP
         let sampleImages = [null, null, null];
         let lastIaAnalysis = null;
         let records = [];
 
-        // REFERENCIAS DEL DOM
         const apiKeyInput = document.getElementById('apiKeyInput');
         const sampleSlots = document.querySelectorAll('.sample-slot');
         const previewContainer = document.getElementById('previewContainer');
@@ -216,7 +209,6 @@
         const noDataMessage = document.getElementById('noDataMessage');
         const statusBadge = document.getElementById('statusBadge');
 
-        // ELEMENTOS DE RESULTADOS DE IA
         const iaVisibles = document.getElementById('iaVisibles');
         const iaLimpia = document.getElementById('iaLimpia');
         const iaManchas = document.getElementById('iaManchas');
@@ -229,17 +221,23 @@
         const iaConfianzaBadge = document.getElementById('iaConfianzaBadge');
         const iaConfianzaMensaje = document.getElementById('iaConfianzaMensaje');
 
-        // RECUPERAR API KEY GUARDADA PREVIAMENTE
+        // RESTAURAR DATOS GUARDADOS LOCALMENTE AL CARGAR
         const savedApiKey = localStorage.getItem('openai_api_key');
-        if (savedApiKey) {
-            apiKeyInput.value = savedApiKey;
-        }
+        if (savedApiKey) apiKeyInput.value = savedApiKey;
 
         apiKeyInput.addEventListener('input', () => {
             localStorage.setItem('openai_api_key', apiKeyInput.value.trim());
         });
 
-        // MANEJO DE FOTOS Y CÁMARA (SLOTS)
+        // Carga inicial del caché local si existe
+        const localSavedRecords = localStorage.getItem('qc_fruit_records');
+        if (localSavedRecords) {
+            try {
+                records = JSON.parse(localSavedRecords);
+                renderData();
+            } catch(e) {}
+        }
+
         sampleSlots.forEach((slot, index) => {
             const input = slot.querySelector('.slot-input');
             const img = slot.querySelector('.slot-img');
@@ -277,47 +275,41 @@
         function calcularPuntajeYClasificacion(frutaLimpia) {
             let puntaje = 0;
             let clasificacion = "DESCARTE";
-
-            if (frutaLimpia >= 70) {
-                puntaje = 9; clasificacion = "PRIMERA";
-            } else if (frutaLimpia >= 50) {
-                puntaje = 8; clasificacion = "PRIMERA";
-            } else if (frutaLimpia >= 25) {
-                puntaje = 7; clasificacion = "SEGUNDA";
-            } else if (frutaLimpia >= 15) {
-                puntaje = 6; clasificacion = "SEGUNDA";
-            } else {
-                puntaje = 4; clasificacion = "DESCARTE";
-            }
+            if (frutaLimpia >= 70) { puntaje = 9; clasificacion = "PRIMERA"; }
+            else if (frutaLimpia >= 50) { puntaje = 8; clasificacion = "PRIMERA"; }
+            else if (frutaLimpia >= 25) { puntaje = 7; clasificacion = "SEGUNDA"; }
+            else if (frutaLimpia >= 15) { puntaje = 6; clasificacion = "SEGUNDA"; }
+            else { puntaje = 4; clasificacion = "DESCARTE"; }
             return { puntaje, clasificacion };
         }
 
-        // CARGAR DATOS DESDE SHEETS
+        // LEER REGISTROS DESDE GOOGLE SHEETS DE FORMA SEGGURA
         async function fetchRecordsFromSheets() {
             try {
                 statusBadge.innerText = "Sincronizando...";
                 statusBadge.className = "text-xs font-bold px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200";
-                
-                const res = await fetch(GOOGLE_SHEETS_SCRIPT_URL);
-                const data = await res.json();
-                
-                if (Array.isArray(data)) {
+
+                const response = await fetch(GOOGLE_SHEETS_SCRIPT_URL + "?action=read");
+                const data = await response.json();
+
+                if (Array.isArray(data) && data.length > 0) {
                     records = data;
+                    localStorage.setItem('qc_fruit_records', JSON.stringify(records));
                     renderData();
                 }
                 statusBadge.innerText = "Online";
                 statusBadge.className = "text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
             } catch (err) {
-                statusBadge.innerText = "Offline / Error";
-                statusBadge.className = "text-xs font-bold px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200";
+                statusBadge.innerText = "Modo Local (Guardado seguro)";
+                statusBadge.className = "text-xs font-bold px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200";
             }
         }
 
-        // ANÁLISIS DE CALIDAD CON OPENAI API
+        // ANÁLISIS IA
         analyzeIaBtn.addEventListener('click', async () => {
             const apiKey = apiKeyInput.value.trim();
             if (!apiKey) {
-                alert("⚠️ Por favor introduce tu API Key de OpenAI en la casilla correspondiente.");
+                alert("⚠️ Por favor introduce tu API Key de OpenAI.");
                 apiKeyInput.focus();
                 return;
             }
@@ -358,15 +350,7 @@
                     },
                     body: JSON.stringify({
                         model: "gpt-4o-mini",
-                        messages: [
-                            {
-                                role: "user",
-                                content: [
-                                    { type: "text", text: promptText },
-                                    ...imageBlocks
-                                ]
-                            }
-                        ],
+                        messages: [{ role: "user", content: [{ type: "text", text: promptText }, ...imageBlocks] }],
                         max_tokens: 900
                     })
                 });
@@ -374,12 +358,7 @@
                 const data = await response.json();
                 if (data.error) throw new Error(data.error.message);
 
-                let iaJson;
-                try {
-                    iaJson = JSON.parse(data.choices[0].message.content.replace(/```json|```/g, '').trim());
-                } catch (parseErr) {
-                    throw new Error("La IA no devolvió un JSON válido. Probá tomar la foto de nuevo con mejor luz/enfoque.");
-                }
+                let iaJson = JSON.parse(data.choices[0].message.content.replace(/```json|```/g, '').trim());
 
                 if (APLICAR_CALIBRACION_HISTORICA) {
                     let defectosMayores = (iaJson.manchas || 0) + (iaJson.cicatrices || 0) + (iaJson.oleocelosis || 0) + (iaJson.dano_mecanico || 0);
@@ -403,7 +382,6 @@
 
                 lastIaAnalysis = iaJson;
 
-                // Render en el panel
                 iaVisibles.innerText = `${iaJson.frutas_visibles || 0} uds`;
                 iaLimpia.innerText = `${iaJson.fruta_limpia}%`;
                 iaManchas.innerText = `${iaJson.manchas}%`;
@@ -419,7 +397,6 @@
                 iaConfianzaMensaje.innerText = iaJson.motivo_confianza || "";
 
                 iaResultsPanel.className = "rounded-2xl p-4 space-y-2 text-xs transition-all border";
-
                 if (confianza === "ALTA") {
                     iaResultsPanel.classList.add("bg-green-50", "border-green-200");
                     iaConfianzaBadge.className = "font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-green-200 text-green-800";
@@ -439,13 +416,13 @@
             }
         });
 
-        // ENVIAR A GOOGLE SHEETS
+        // ENVIAR Y GUARDAR INSTANTÁNEAMENTE
         qcForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!lastIaAnalysis) return;
 
             submitBtn.disabled = true;
-            submitBtn.innerText = "🚀 Enviando a Google Sheets...";
+            submitBtn.innerText = "🚀 Guardando registro...";
 
             const now = new Date();
             const formattedDate = now.toLocaleDateString('es-AR') + ' ' + now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
@@ -463,44 +440,47 @@
                 ...lastIaAnalysis
             };
 
+            // Guardar localmente DE INMEDIATO para asegurar visualización
+            records.unshift(newRecord);
+            localStorage.setItem('qc_fruit_records', JSON.stringify(records));
+            renderData();
+
+            // Enviar a Google Sheets en segundo plano
             try {
                 await fetch(GOOGLE_SHEETS_SCRIPT_URL, {
                     method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(newRecord)
                 });
-
-                records.unshift(newRecord);
-                renderData();
-
-                qcForm.reset();
-                if (savedApiKey || apiKeyInput.value) {
-                    apiKeyInput.value = localStorage.getItem('openai_api_key') || '';
-                }
-                lastIaAnalysis = null;
-                previewContainer.classList.add('hidden');
-                iaResultsPanel.classList.add('hidden');
-
-                sampleImages = [null, null, null];
-                sampleSlots.forEach((slot) => {
-                    slot.querySelector('.slot-img').classList.add('hidden');
-                    slot.querySelector('.slot-img').src = "";
-                    slot.querySelector('.slot-placeholder').classList.remove('hidden');
-                });
-
-                actualizarBotonAnalizar();
-                fetchRecordsFromSheets();
             } catch (err) {
-                alert("❌ Error al guardar en Sheets.");
-            } finally {
-                submitBtn.disabled = true;
-                submitBtn.innerText = "Guardar Directo en Sheets";
+                console.log("Se guardó localmente. Error enviando a Sheets:", err);
             }
+
+            // Limpiar formulario
+            qcForm.reset();
+            if (savedApiKey || apiKeyInput.value) {
+                apiKeyInput.value = localStorage.getItem('openai_api_key') || '';
+            }
+            lastIaAnalysis = null;
+            previewContainer.classList.add('hidden');
+            iaResultsPanel.classList.add('hidden');
+
+            sampleImages = [null, null, null];
+            sampleSlots.forEach((slot) => {
+                slot.querySelector('.slot-img').classList.add('hidden');
+                slot.querySelector('.slot-img').src = "";
+                slot.querySelector('.slot-placeholder').classList.remove('hidden');
+            });
+
+            actualizarBotonAnalizar();
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Guardar Directo en Sheets";
         });
 
-        // RENDER DE LA TABLA
         function renderData() {
             tableBodyDesktop.innerHTML = '';
-            if (records.length === 0) { 
+            if (!records || records.length === 0) { 
                 noDataMessage.classList.remove('hidden'); 
                 return; 
             }
@@ -546,7 +526,14 @@
             });
         }
 
-        // CARGA INICIAL
+        function limpiarHistorialLocal() {
+            if (confirm("¿Deseas vaciar los registros mostrados en esta pantalla?")) {
+                localStorage.removeItem('qc_fruit_records');
+                records = [];
+                renderData();
+            }
+        }
+
         fetchRecordsFromSheets();
     </script>
 </body>
