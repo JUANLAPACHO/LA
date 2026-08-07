@@ -14,7 +14,7 @@
         <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
                 <h1 class="text-xl sm:text-2xl font-bold text-slate-900">Control de Calidad de Citrus</h1>
-                <p class="text-xs sm:text-sm text-slate-500">Inspección de muestras y análisis asistido por IA (Modo Alta Tolerancia)</p>
+                <p class="text-xs sm:text-sm text-slate-500">Inspección de muestras y análisis asistido por IA (Factor de Corrección +70% en Fruta Limpia)</p>
             </div>
             <div class="flex items-center gap-3 w-full md:w-auto">
                 <span id="statusBadge" class="text-xs font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
@@ -163,7 +163,7 @@
                     <!-- RESULTADOS IA -->
                     <div id="iaResultsPanel" class="hidden rounded-2xl p-4 space-y-3 text-xs transition-all border">
                         <div class="flex justify-between items-center border-b pb-2">
-                            <span class="font-bold text-slate-700">Resultado Inspección IA</span>
+                            <span class="font-bold text-slate-700">Resultado Inspección IA (+70% Corrección)</span>
                             <span id="iaConfianzaBadge" class="font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wide"></span>
                         </div>
 
@@ -173,7 +173,7 @@
                                 <span id="iaVisibles" class="font-bold text-slate-800 text-sm">-</span>
                             </div>
                             <div class="bg-white/80 p-2 rounded-lg border">
-                                <span class="block text-[10px] text-slate-400">Fruta Limpia</span>
+                                <span class="block text-[10px] text-slate-400">Limpia (Base / Corregida)</span>
                                 <span id="iaLimpia" class="font-bold text-emerald-600 text-sm">-</span>
                             </div>
                             <div class="bg-white/80 p-2 rounded-lg border">
@@ -242,7 +242,7 @@
                             <th class="p-2">Código</th>
                             <th class="p-2">Etiqueta</th>
                             <th class="p-2 text-center">Cant.</th>
-                            <th class="p-2 text-center">Limpia</th>
+                            <th class="p-2 text-center">Limpia (Corr.)</th>
                             <th class="p-2 text-center">Manchas</th>
                             <th class="p-2 text-center">Cicatriz</th>
                             <th class="p-2 text-center">Oleoc.</th>
@@ -302,7 +302,7 @@
         const iaConfianzaBadge = document.getElementById('iaConfianzaBadge');
         const iaConfianzaMensaje = document.getElementById('iaConfianzaMensaje');
 
-        // FUNCIÓN UTILITARIA PARA COMPRIMIR Y REDIMENSIONAR IMÁGENES
+        // COMPRIMIR Y REDIMENSIONAR IMÁGENES
         function processImage(file, maxWidth = 1000) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -400,21 +400,24 @@
             analyzeIaBtn.disabled = !hayFotos;
         }
 
-        // CÁLCULO CON 50% MÁS DE TOLERANCIA
-        function calcularPuntajeYClasificacion(frutaLimpia) {
+        // CÁLCULO CON FACTOR DE CORRECCIÓN DEL +70%
+        function calcularPuntajeYClasificacion(frutaLimpiaBase) {
+            // Factor de corrección: incrementa un 70% la fruta limpia identificada (máximo 100%)
+            const frutaLimpiaCorregida = Math.min(100, Math.round(frutaLimpiaBase * 1.70 * 10) / 10);
+
             let puntaje = 0;
             let clasificacion = "DESCARTE";
 
-            if (frutaLimpia >= 35) {          // Antes 70%
+            if (frutaLimpiaCorregida >= 70) {
                 puntaje = 9; 
                 clasificacion = "PRIMERA"; 
-            } else if (frutaLimpia >= 25) {   // Antes 50%
+            } else if (frutaLimpiaCorregida >= 50) {
                 puntaje = 8; 
                 clasificacion = "PRIMERA"; 
-            } else if (frutaLimpia >= 12.5) { // Antes 25%
+            } else if (frutaLimpiaCorregida >= 25) {
                 puntaje = 7; 
                 clasificacion = "SEGUNDA"; 
-            } else if (frutaLimpia >= 7.5) {  // Antes 15%
+            } else if (frutaLimpiaCorregida >= 15) {
                 puntaje = 6; 
                 clasificacion = "SEGUNDA"; 
             } else {
@@ -422,7 +425,7 @@
                 clasificacion = "DESCARTE"; 
             }
 
-            return { puntaje, clasificacion };
+            return { frutaLimpiaCorregida, puntaje, clasificacion };
         }
 
         // SCANNER DE ETIQUETA VIA IA
@@ -510,7 +513,7 @@
             }
         }
 
-        // ANÁLISIS DE IA
+        // ANÁLISIS DE IA CON FACTOR APLICADO
         analyzeIaBtn.addEventListener('click', async () => {
             const apiKey = apiKeyInput.value.trim();
             if (!apiKey) {
@@ -520,7 +523,7 @@
             }
 
             analyzeIaBtn.disabled = true;
-            analyzeIaBtn.innerText = "⏳ Analizando severidad y calibración...";
+            analyzeIaBtn.innerText = "⏳ Analizando severidad y aplicando factor +70%...";
 
             const contentBlocks = [];
 
@@ -594,14 +597,19 @@ Devolvé ÚNICAMENTE un objeto JSON con el siguiente formato exacto:
 
                 let iaJson = JSON.parse(data.choices[0].message.content);
 
-                const { puntaje, clasificacion } = calcularPuntajeYClasificacion(iaJson.fruta_limpia || 0);
+                // Aplicar Factor de Corrección +70%
+                const frutaLimpiaBase = iaJson.fruta_limpia || 0;
+                const { frutaLimpiaCorregida, puntaje, clasificacion } = calcularPuntajeYClasificacion(frutaLimpiaBase);
+
+                iaJson.fruta_limpia_base = frutaLimpiaBase;
+                iaJson.fruta_limpia = frutaLimpiaCorregida; // Guardamos el valor corregido como valor principal
                 iaJson.puntaje = puntaje;
                 iaJson.clasificacion = clasificacion;
 
                 lastIaAnalysis = iaJson;
 
                 iaVisibles.innerText = `${iaJson.frutas_visibles || 0} uds`;
-                iaLimpia.innerText = `${iaJson.fruta_limpia || 0}%`;
+                iaLimpia.innerText = `${frutaLimpiaBase}% ➔ ${frutaLimpiaCorregida}%`;
                 iaManchas.innerText = `${iaJson.manchas || 0}%`;
                 iaCicatrices.innerText = `${iaJson.cicatrices || 0}%`;
                 iaOleocelosis.innerText = `${iaJson.oleocelosis || 0}%`;
